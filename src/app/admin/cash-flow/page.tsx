@@ -73,7 +73,7 @@ export default function CashFlowPage() {
         .reduce((s, t) => s + t.amount, 0)
 
       const cashOut = dayTxns
-        .filter(t => t.type === 'expense' || t.type === 'salary' || t.type === 'commission')
+        .filter(t => t.type === 'expense' || t.type === 'salary' || t.type === 'commission' || t.type === 'withdrawal')
         .reduce((s, t) => s + t.amount, 0)
 
       runningBalance += cashIn - cashOut

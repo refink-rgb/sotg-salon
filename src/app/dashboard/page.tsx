@@ -197,6 +197,16 @@ export default function DashboardQueuePage() {
       updated[index].method = value as PaymentMethod
     } else {
       updated[index].amount = value
+      // Auto-balance: if there are 2+ payments and this isn't the last one,
+      // set the last payment to the remaining balance
+      const total = Number(totalPrice || 0)
+      if (total > 0 && updated.length >= 2 && index !== updated.length - 1) {
+        const otherSum = updated
+          .filter((_, i) => i !== updated.length - 1)
+          .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+        const remaining = Math.max(0, total - otherSum)
+        updated[updated.length - 1].amount = remaining > 0 ? String(remaining) : ''
+      }
     }
     setPayments(updated)
   }

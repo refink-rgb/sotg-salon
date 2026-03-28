@@ -41,6 +41,7 @@ const TYPE_OPTIONS = [
   { value: 'expense', label: 'Expenses' },
   { value: 'salary', label: 'Salary' },
   { value: 'commission', label: 'Commission' },
+  { value: 'withdrawal', label: 'Owner Draws' },
 ] as const
 
 type TypeFilter = (typeof TYPE_OPTIONS)[number]['value']
@@ -142,6 +143,7 @@ export default function TransactionsPage() {
     const totalExpenses = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
     const totalSalary = filtered.filter(t => t.type === 'salary').reduce((s, t) => s + t.amount, 0)
     const totalCommission = filtered.filter(t => t.type === 'commission').reduce((s, t) => s + t.amount, 0)
+    const totalWithdrawals = filtered.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0)
     const net = totalSales - totalExpenses - totalSalary - totalCommission
 
     const medsExpenses = filtered
@@ -149,7 +151,7 @@ export default function TransactionsPage() {
       .reduce((s, t) => s + t.amount, 0)
     const nonMedsExpenses = totalExpenses - medsExpenses
 
-    return { totalSales, totalExpenses, totalSalary, totalCommission, net, medsExpenses, nonMedsExpenses }
+    return { totalSales, totalExpenses, totalSalary, totalCommission, totalWithdrawals, net, medsExpenses, nonMedsExpenses }
   }, [filtered])
 
   const paymentMethodLabel = (method: string | null) => {
@@ -170,6 +172,7 @@ export default function TransactionsPage() {
       case 'expense': return 'destructive'
       case 'salary': return 'secondary'
       case 'commission': return 'outline'
+      case 'withdrawal': return 'outline'
       default: return 'secondary'
     }
   }
@@ -253,7 +256,7 @@ export default function TransactionsPage() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-gray-500">Total Sales</p>
@@ -282,6 +285,17 @@ export default function TransactionsPage() {
             </p>
           </CardContent>
         </Card>
+        {summary.totalWithdrawals > 0 && (
+          <Card>
+            <CardContent className="p-3">
+              <p className="text-xs text-gray-500">Owner Draws</p>
+              <p className="text-lg font-bold text-purple-600">
+                {formatCurrency(summary.totalWithdrawals)}
+              </p>
+              <p className="text-[10px] text-gray-400">Cash only, not in P&L</p>
+            </CardContent>
+          </Card>
+        )}
         {typeFilter === 'expense' && (
           <Card>
             <CardContent className="p-3">

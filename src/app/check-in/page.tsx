@@ -249,12 +249,17 @@ export default function CheckInPage() {
           )}
         </Button>
 
-        <div className="text-center pt-2">
-          <a href="/login" className="text-xs text-gray-400 hover:text-gray-600">
-            Staff Login →
-          </a>
-        </div>
       </form>
+
+      {/* Staff Login - bottom right */}
+      <div className="fixed bottom-4 right-4">
+        <a
+          href="/login"
+          className="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors"
+        >
+          Staff Login →
+        </a>
+      </div>
     </div>
   )
 }
