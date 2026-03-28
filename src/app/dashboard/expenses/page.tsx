@@ -51,8 +51,9 @@ export default function ExpensesPage() {
 
   // Payout form
   const [payoutEmployee, setPayoutEmployee] = useState('')
-  const [payoutType, setPayoutType] = useState<'salary' | 'commission'>('salary')
-  const [payoutAmount, setPayoutAmount] = useState('')
+  const [payoutSalary, setPayoutSalary] = useState('')
+  const [payoutSC, setPayoutSC] = useState('')
+  const [payoutCommission, setPayoutCommission] = useState('')
   const [submittingPayout, setSubmittingPayout] = useState(false)
 
   // Payment summary
@@ -136,26 +137,69 @@ export default function ExpensesPage() {
 
   async function handleAddPayout(e: React.FormEvent) {
     e.preventDefault()
-    if (!payoutEmployee || !payoutAmount || Number(payoutAmount) <= 0) {
-      toast.error('Please select an employee and enter an amount')
+    const salaryVal = Number(payoutSalary) || 0
+    const scVal = Number(payoutSC) || 0
+    const commissionVal = Number(payoutCommission) || 0
+
+    if (!payoutEmployee) {
+      toast.error('Please select an employee')
+      return
+    }
+    if (salaryVal <= 0 && scVal <= 0 && commissionVal <= 0) {
+      toast.error('Please enter at least one amount')
       return
     }
 
     setSubmittingPayout(true)
     try {
       const emp = employees.find((e) => e.id === payoutEmployee)
-      const { error } = await supabase.from('transactions').insert({
-        date: today,
-        type: payoutType,
-        amount: Number(payoutAmount),
-        employee_id: payoutEmployee,
-        description: `${payoutType === 'salary' ? 'Salary' : 'Commission'} - ${emp?.name || 'Unknown'}`,
-      })
+      const inserts: {
+        date: string
+        type: string
+        amount: number
+        employee_id: string
+        category?: string
+        description: string
+      }[] = []
+
+      if (salaryVal > 0) {
+        inserts.push({
+          date: today,
+          type: 'salary',
+          amount: salaryVal,
+          employee_id: payoutEmployee,
+          category: 'salary',
+          description: `Salary - ${emp?.name || 'Unknown'}`,
+        })
+      }
+      if (scVal > 0) {
+        inserts.push({
+          date: today,
+          type: 'salary',
+          amount: scVal,
+          employee_id: payoutEmployee,
+          category: 'service_charge',
+          description: `Service Charge - ${emp?.name || 'Unknown'}`,
+        })
+      }
+      if (commissionVal > 0) {
+        inserts.push({
+          date: today,
+          type: 'commission',
+          amount: commissionVal,
+          employee_id: payoutEmployee,
+          description: `Commission - ${emp?.name || 'Unknown'}`,
+        })
+      }
+
+      const { error } = await supabase.from('transactions').insert(inserts)
       if (error) throw error
 
       toast.success('Payout recorded')
       setPayoutEmployee('')
-      setPayoutAmount('')
+      setPayoutSalary('')
+      setPayoutSC('')
+      setPayoutCommission('')
       fetchData()
     } catch (error) {
       console.error(error)
@@ -296,53 +340,58 @@ export default function ExpensesPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAddPayout} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Employee</Label>
-                <Select
-                  value={payoutEmployee}
-                  onValueChange={(v) => setPayoutEmployee(v ?? '')}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Type</Label>
-                <Select
-                  value={payoutType}
-                  onValueChange={(val) =>
-                    setPayoutType(val as 'salary' | 'commission')
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="salary">Salary</SelectItem>
-                    <SelectItem value="commission">Commission</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
             <div className="space-y-1.5">
-              <Label>Amount</Label>
-              <Input
-                type="number"
-                value={payoutAmount}
-                onChange={(e) => setPayoutAmount(e.target.value)}
-                placeholder="0"
-                min="0"
-                className="h-8"
-              />
+              <Label>Employee</Label>
+              <Select
+                value={payoutEmployee}
+                onValueChange={(v) => setPayoutEmployee(v ?? '')}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label>Salary</Label>
+                <Input
+                  type="number"
+                  value={payoutSalary}
+                  onChange={(e) => setPayoutSalary(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="h-8"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Service Charge</Label>
+                <Input
+                  type="number"
+                  value={payoutSC}
+                  onChange={(e) => setPayoutSC(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="h-8"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Commission</Label>
+                <Input
+                  type="number"
+                  value={payoutCommission}
+                  onChange={(e) => setPayoutCommission(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="h-8"
+                />
+              </div>
             </div>
             <Button
               type="submit"
@@ -391,7 +440,11 @@ export default function ExpensesPage() {
                   return (
                     <TableRow key={tx.id}>
                       <TableCell>
-                        <span className="capitalize">{tx.type}</span>
+                        <span className="capitalize">
+                          {tx.type === 'salary' && tx.category === 'service_charge'
+                            ? 'Service Charge'
+                            : tx.type}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {tx.type === 'expense'

@@ -69,64 +69,39 @@ export default function CheckInPage() {
     setLoading(true)
 
     try {
-      // Check if customer exists by phone
-      const { data: existingCustomer } = await supabase
+      const customerId = crypto.randomUUID()
+      const visitId = crypto.randomUUID()
+      const today = new Date().toISOString().split('T')[0]
+
+      // Insert new customer
+      const { error: customerError } = await supabase
         .from('customers')
-        .select('id')
-        .eq('phone', phone.trim())
-        .maybeSingle()
+        .insert({
+          id: customerId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phone.trim(),
+          city: city.trim(),
+          is_returning: !isFirstTime,
+        })
 
-      let customerId: string
-
-      if (existingCustomer) {
-        // Update existing customer, always mark as returning
-        const { error: updateError } = await supabase
-          .from('customers')
-          .update({
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            city: city.trim(),
-            is_returning: true,
-          })
-          .eq('id', existingCustomer.id)
-
-        if (updateError) throw updateError
-        customerId = existingCustomer.id
-      } else {
-        // Insert new customer
-        const { data: newCustomer, error: insertError } = await supabase
-          .from('customers')
-          .insert({
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            phone: phone.trim(),
-            city: city.trim(),
-            is_returning: !isFirstTime,
-          })
-          .select('id')
-          .single()
-
-        if (insertError) throw insertError
-        customerId = newCustomer.id
-      }
+      if (customerError) throw customerError
 
       // Create visit record
-      const today = new Date().toISOString().split('T')[0]
-      const { data: visit, error: visitError } = await supabase
+      const { error: visitError } = await supabase
         .from('visits')
         .insert({
+          id: visitId,
           customer_id: customerId,
           date: today,
           status: 'in_progress',
         })
-        .select('id')
-        .single()
 
       if (visitError) throw visitError
 
       // Insert visit services
       const visitServices = selectedServices.map((serviceId) => ({
-        visit_id: visit.id,
+        visit_id: visitId,
         service_id: serviceId,
         price: null,
       }))
@@ -273,6 +248,12 @@ export default function CheckInPage() {
             'Check In'
           )}
         </Button>
+
+        <div className="text-center pt-2">
+          <a href="/login" className="text-xs text-gray-400 hover:text-gray-600">
+            Staff Login →
+          </a>
+        </div>
       </form>
     </div>
   )
