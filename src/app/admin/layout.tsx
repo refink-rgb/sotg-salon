@@ -14,6 +14,8 @@ import {
   ArrowLeft,
   LogOut,
   Menu,
+  UserSearch,
+  List,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -27,9 +29,11 @@ import {
 
 const navLinks = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/customers', label: 'Customers', icon: UserSearch },
   { href: '/admin/income-statement', label: 'Income Statement', icon: FileText },
   { href: '/admin/payroll', label: 'Payroll', icon: Users },
   { href: '/admin/cash-flow', label: 'Cash Flow', icon: DollarSign },
+  { href: '/admin/transactions', label: 'Transactions', icon: List },
   { href: '/admin/forecasting', label: 'Forecasting', icon: TrendingUp },
   { href: '/admin/import', label: 'Import Data', icon: Upload },
   { href: '/admin/settings', label: 'Settings', icon: Settings },

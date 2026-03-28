@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -24,15 +24,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  DollarSign,
   Clock,
   CheckCircle2,
   Loader2,
-  User,
   Phone,
   MapPin,
   Plus,
   Trash2,
+  CalendarIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -51,17 +50,29 @@ export default function DashboardQueuePage() {
   const [loading, setLoading] = useState(true)
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [readOnly, setReadOnly] = useState(false)
+  const [editMode, setEditMode] = useState<'new' | 'edit'>('new')
 
-  // Form state for completing a visit
-  const [servicePrices, setServicePrices] = useState<Record<string, string>>({})
+  // Date selector state
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split('T')[0]
+  )
+  const todayStr = new Date().toISOString().split('T')[0]
+
+  // Form state for completing/editing a visit
+  const [totalPrice, setTotalPrice] = useState('')
   const [payments, setPayments] = useState<PaymentEntry[]>([
     { method: 'cash', amount: '' },
   ])
   const [notes, setNotes] = useState('')
   const [completing, setCompleting] = useState(false)
 
-  const today = new Date().toISOString().split('T')[0]
+  // Elapsed time ticker
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   const fetchVisits = useCallback(async () => {
     const { data, error } = await supabase
@@ -74,7 +85,7 @@ export default function DashboardQueuePage() {
         visit_payments(*)
       `
       )
-      .eq('date', today)
+      .eq('date', selectedDate)
       .order('created_at', { ascending: true })
 
     if (error) {
@@ -84,9 +95,10 @@ export default function DashboardQueuePage() {
       setVisits(data || [])
     }
     setLoading(false)
-  }, [today])
+  }, [selectedDate])
 
   useEffect(() => {
+    setLoading(true)
     fetchVisits()
     // Poll every 30s
     const interval = setInterval(fetchVisits, 30000)
@@ -98,34 +110,41 @@ export default function DashboardQueuePage() {
 
   const totalSales = completed.reduce((sum, v) => sum + (v.total_amount || 0), 0)
 
-  function openVisitDetail(visit: Visit, isReadOnly: boolean) {
+  function openVisitDetail(visit: Visit, mode: 'new' | 'edit') {
     setSelectedVisit(visit)
-    setReadOnly(isReadOnly)
+    setEditMode(mode)
 
-    if (!isReadOnly) {
-      // Initialize service prices
-      const prices: Record<string, string> = {}
-      visit.visit_services?.forEach((vs) => {
-        prices[vs.id] = vs.price != null ? String(vs.price) : ''
-      })
-      setServicePrices(prices)
-
-      // Initialize payments
-      if (visit.visit_payments && visit.visit_payments.length > 0) {
-        setPayments(
-          visit.visit_payments.map((vp) => ({
-            method: vp.method,
-            amount: String(vp.amount),
-          }))
-        )
-      } else {
-        setPayments([{ method: 'cash', amount: '' }])
-      }
-
-      setNotes(visit.notes || '')
+    // Initialize total price
+    if (mode === 'edit' && visit.total_amount != null) {
+      setTotalPrice(String(visit.total_amount))
+    } else {
+      setTotalPrice('')
     }
 
+    // Initialize payments
+    if (visit.visit_payments && visit.visit_payments.length > 0) {
+      setPayments(
+        visit.visit_payments.map((vp) => ({
+          method: vp.method,
+          amount: String(vp.amount),
+        }))
+      )
+    } else {
+      setPayments([{ method: 'cash', amount: '' }])
+    }
+
+    setNotes(visit.notes || '')
     setSheetOpen(true)
+  }
+
+  function handleTotalPriceChange(value: string) {
+    setTotalPrice(value)
+    // Auto-fill the first payment entry with the total price
+    if (payments.length === 1) {
+      const updated = [...payments]
+      updated[0].amount = value
+      setPayments(updated)
+    }
   }
 
   function addPayment() {
@@ -150,37 +169,32 @@ export default function DashboardQueuePage() {
     setPayments(updated)
   }
 
+  const totalPriceNum = Number(totalPrice || 0)
+  const totalPayments = payments.reduce(
+    (sum, p) => sum + Number(p.amount || 0),
+    0
+  )
+  const paymentMismatch =
+    totalPriceNum > 0 &&
+    totalPayments > 0 &&
+    Math.abs(totalPayments - totalPriceNum) > 0.01
+
   async function handleMarkComplete() {
     if (!selectedVisit) return
 
-    // Validate prices
-    const hasEmptyPrice = selectedVisit.visit_services?.some(
-      (vs) => !servicePrices[vs.id] || Number(servicePrices[vs.id]) <= 0
-    )
-    if (hasEmptyPrice) {
-      toast.error('Please enter a price for each service')
+    if (totalPriceNum <= 0) {
+      toast.error('Please enter a total price')
       return
     }
-
-    // Validate payments
-    const totalServices = selectedVisit.visit_services?.reduce(
-      (sum, vs) => sum + Number(servicePrices[vs.id] || 0),
-      0
-    ) || 0
-
-    const totalPayments = payments.reduce(
-      (sum, p) => sum + Number(p.amount || 0),
-      0
-    )
 
     if (totalPayments <= 0) {
       toast.error('Please enter payment amounts')
       return
     }
 
-    if (Math.abs(totalPayments - totalServices) > 0.01) {
+    if (paymentMismatch) {
       toast.error(
-        `Payment total (${formatPHP(totalPayments)}) does not match service total (${formatPHP(totalServices)})`
+        `Payment total (${formatPHP(totalPayments)}) does not match total price (${formatPHP(totalPriceNum)})`
       )
       return
     }
@@ -188,21 +202,12 @@ export default function DashboardQueuePage() {
     setCompleting(true)
 
     try {
-      // Update service prices
-      for (const vs of selectedVisit.visit_services || []) {
-        const { error } = await supabase
-          .from('visit_services')
-          .update({ price: Number(servicePrices[vs.id]) })
-          .eq('id', vs.id)
-        if (error) throw error
-      }
-
       // Update visit
       const { error: visitError } = await supabase
         .from('visits')
         .update({
           status: 'completed',
-          total_amount: totalServices,
+          total_amount: totalPriceNum,
           notes: notes.trim() || null,
           completed_at: new Date().toISOString(),
         })
@@ -232,18 +237,18 @@ export default function DashboardQueuePage() {
 
       // Create transaction record
       const { error: txError } = await supabase.from('transactions').insert({
-        date: today,
+        date: selectedDate,
         type: 'sale',
-        amount: totalServices,
+        amount: totalPriceNum,
         visit_id: selectedVisit.id,
         description: `Sale - ${selectedVisit.customer?.first_name} ${selectedVisit.customer?.last_name}`,
       })
       if (txError) throw txError
 
       // Note if total >= 3000 for service charge tracking
-      if (totalServices >= 3000) {
+      if (totalPriceNum >= 3000) {
         console.log(
-          `Service charge eligible visit: ${selectedVisit.id} - ${formatPHP(totalServices)}`
+          `Service charge eligible visit: ${selectedVisit.id} - ${formatPHP(totalPriceNum)}`
         )
       }
 
@@ -259,8 +264,98 @@ export default function DashboardQueuePage() {
     }
   }
 
+  async function handleSaveChanges() {
+    if (!selectedVisit) return
+
+    if (totalPriceNum <= 0) {
+      toast.error('Please enter a total price')
+      return
+    }
+
+    if (totalPayments <= 0) {
+      toast.error('Please enter payment amounts')
+      return
+    }
+
+    if (paymentMismatch) {
+      toast.error(
+        `Payment total (${formatPHP(totalPayments)}) does not match total price (${formatPHP(totalPriceNum)})`
+      )
+      return
+    }
+
+    setCompleting(true)
+
+    try {
+      // Update visit
+      const { error: visitError } = await supabase
+        .from('visits')
+        .update({
+          total_amount: totalPriceNum,
+          notes: notes.trim() || null,
+        })
+        .eq('id', selectedVisit.id)
+      if (visitError) throw visitError
+
+      // Delete existing visit_payments then insert new ones
+      await supabase
+        .from('visit_payments')
+        .delete()
+        .eq('visit_id', selectedVisit.id)
+
+      const paymentRecords = payments
+        .filter((p) => Number(p.amount) > 0)
+        .map((p) => ({
+          visit_id: selectedVisit.id,
+          method: p.method,
+          amount: Number(p.amount),
+        }))
+
+      if (paymentRecords.length > 0) {
+        const { error: payError } = await supabase
+          .from('visit_payments')
+          .insert(paymentRecords)
+        if (payError) throw payError
+      }
+
+      // Update the existing transaction record
+      const { error: txError } = await supabase
+        .from('transactions')
+        .update({
+          amount: totalPriceNum,
+        })
+        .eq('visit_id', selectedVisit.id)
+        .eq('type', 'sale')
+      if (txError) throw txError
+
+      toast.success('Changes saved!')
+      setSheetOpen(false)
+      setSelectedVisit(null)
+      fetchVisits()
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to save changes')
+    } finally {
+      setCompleting(false)
+    }
+  }
+
   function formatPHP(amount: number) {
     return `\u20B1${amount.toLocaleString()}`
+  }
+
+  function formatElapsed(createdAt: string) {
+    const created = new Date(createdAt)
+    const now = new Date()
+    const diffMs = now.getTime() - created.getTime()
+    const diffMin = Math.floor(diffMs / 60000)
+
+    if (diffMin < 1) return 'just now'
+    if (diffMin < 60) return `${diffMin} min ago`
+    const hours = Math.floor(diffMin / 60)
+    const mins = diffMin % 60
+    if (mins === 0) return `${hours}h ago`
+    return `${hours}h ${mins}m ago`
   }
 
   if (loading) {
@@ -297,6 +392,30 @@ export default function DashboardQueuePage() {
         </div>
       </div>
 
+      {/* Date Picker */}
+      <div className="mx-auto w-full max-w-4xl px-4 pt-4">
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="size-4 text-muted-foreground" />
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            max={todayStr}
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#40916C] focus:ring-offset-1"
+          />
+          {selectedDate !== todayStr && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedDate(todayStr)}
+              className="text-xs"
+            >
+              Back to Today
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* Queue */}
       <div className="mx-auto w-full max-w-4xl px-4 py-4">
         <Tabs defaultValue="in_progress">
@@ -321,7 +440,7 @@ export default function DashboardQueuePage() {
                   <Card
                     key={visit.id}
                     className="cursor-pointer transition-shadow hover:shadow-md"
-                    onClick={() => openVisitDetail(visit, false)}
+                    onClick={() => openVisitDetail(visit, 'new')}
                   >
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between">
@@ -338,9 +457,14 @@ export default function DashboardQueuePage() {
                             ))}
                           </div>
                         </div>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(visit.created_at), 'h:mm a')}
-                        </span>
+                        <div className="text-right">
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(visit.created_at), 'h:mm a')}
+                          </span>
+                          <p className="mt-0.5 text-xs font-medium text-[#40916C]">
+                            {formatElapsed(visit.created_at)}
+                          </p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -353,7 +477,7 @@ export default function DashboardQueuePage() {
             {completed.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground">
                 <CheckCircle2 className="mx-auto size-10 text-gray-300" />
-                <p className="mt-2">No completed visits today</p>
+                <p className="mt-2">No completed visits{selectedDate !== todayStr ? ' on this date' : ' today'}</p>
               </div>
             ) : (
               <div className="mt-3 space-y-3">
@@ -361,7 +485,7 @@ export default function DashboardQueuePage() {
                   <Card
                     key={visit.id}
                     className="cursor-pointer transition-shadow hover:shadow-md"
-                    onClick={() => openVisitDetail(visit, true)}
+                    onClick={() => openVisitDetail(visit, 'edit')}
                   >
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between">
@@ -439,48 +563,37 @@ export default function DashboardQueuePage() {
 
               <Separator />
 
-              {/* Services with Prices */}
+              {/* Services (read-only list) */}
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold">Services</h3>
-                {selectedVisit.visit_services?.map((vs) => (
-                  <div
-                    key={vs.id}
-                    className="flex items-center justify-between gap-3"
-                  >
-                    <span className="text-sm">{vs.service?.name}</span>
-                    {readOnly ? (
-                      <span className="text-sm font-medium">
-                        {formatPHP(vs.price || 0)}
-                      </span>
-                    ) : (
-                      <Input
-                        type="number"
-                        placeholder="Price"
-                        value={servicePrices[vs.id] || ''}
-                        onChange={(e) =>
-                          setServicePrices({
-                            ...servicePrices,
-                            [vs.id]: e.target.value,
-                          })
-                        }
-                        className="w-28 text-right"
-                        min="0"
-                      />
-                    )}
-                  </div>
-                ))}
-                {!readOnly && (
-                  <div className="flex justify-end text-sm font-semibold">
-                    Total:{' '}
-                    {formatPHP(
-                      selectedVisit.visit_services?.reduce(
-                        (sum, vs) =>
-                          sum + Number(servicePrices[vs.id] || 0),
-                        0
-                      ) || 0
-                    )}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedVisit.visit_services?.map((vs) => (
+                    <Badge key={vs.id} variant="secondary">
+                      {vs.service?.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Total Price */}
+              <div className="space-y-2">
+                <Label htmlFor="total-price">Total Price</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    ₱
+                  </span>
+                  <Input
+                    id="total-price"
+                    type="number"
+                    placeholder="Enter total price"
+                    value={totalPrice}
+                    onChange={(e) => handleTotalPriceChange(e.target.value)}
+                    className="pl-7 text-right text-lg font-semibold"
+                    min="0"
+                  />
+                </div>
               </div>
 
               <Separator />
@@ -489,88 +602,76 @@ export default function DashboardQueuePage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold">Payment</h3>
-                  {!readOnly && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={addPayment}
-                    >
-                      <Plus className="size-4" />
-                      Split
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={addPayment}
+                  >
+                    <Plus className="size-4" />
+                    Split
+                  </Button>
                 </div>
 
-                {readOnly ? (
-                  <div className="space-y-2">
-                    {selectedVisit.visit_payments?.map((vp) => (
-                      <div
-                        key={vp.id}
-                        className="flex items-center justify-between text-sm"
+                <div className="space-y-2">
+                  {payments.map((payment, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Select
+                        value={payment.method}
+                        onValueChange={(val) =>
+                          updatePayment(index, 'method', val ?? 'cash')
+                        }
                       >
-                        <span>
-                          {PAYMENT_METHODS.find((m) => m.value === vp.method)?.label}
-                        </span>
-                        <span className="font-medium">
-                          {formatPHP(vp.amount)}
-                        </span>
-                      </div>
-                    ))}
-                    <div className="flex items-center justify-between text-sm font-bold">
-                      <span>Total Paid</span>
-                      <span>
-                        {formatPHP(
-                          selectedVisit.visit_payments?.reduce(
-                            (sum, vp) => sum + vp.amount,
-                            0
-                          ) || 0
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {payments.map((payment, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Select
-                          value={payment.method}
-                          onValueChange={(val) =>
-                            updatePayment(index, 'method', val ?? 'cash')
-                          }
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAYMENT_METHODS.map((pm) => (
+                            <SelectItem key={pm.value} value={pm.value}>
+                              {pm.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        placeholder="Amount"
+                        value={payment.amount}
+                        onChange={(e) =>
+                          updatePayment(index, 'amount', e.target.value)
+                        }
+                        className="flex-1 text-right"
+                        min="0"
+                      />
+                      {payments.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => removePayment(index)}
                         >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PAYMENT_METHODS.map((pm) => (
-                              <SelectItem key={pm.value} value={pm.value}>
-                                {pm.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="number"
-                          placeholder="Amount"
-                          value={payment.amount}
-                          onChange={(e) =>
-                            updatePayment(index, 'amount', e.target.value)
-                          }
-                          className="flex-1 text-right"
-                          min="0"
-                        />
-                        {payments.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => removePayment(index)}
-                          >
-                            <Trash2 className="size-4 text-red-500" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                          <Trash2 className="size-4 text-red-500" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Payment sum validation */}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Payment Total</span>
+                  <span
+                    className={
+                      paymentMismatch
+                        ? 'font-semibold text-red-500'
+                        : 'font-semibold'
+                    }
+                  >
+                    {formatPHP(totalPayments)}
+                  </span>
+                </div>
+                {paymentMismatch && (
+                  <p className="text-xs text-red-500">
+                    Payment total does not match the total price ({formatPHP(totalPriceNum)})
+                  </p>
                 )}
               </div>
 
@@ -579,22 +680,16 @@ export default function DashboardQueuePage() {
               {/* Notes */}
               <div className="space-y-2">
                 <Label>Notes</Label>
-                {readOnly ? (
-                  <p className="text-sm text-muted-foreground">
-                    {selectedVisit.notes || 'No notes'}
-                  </p>
-                ) : (
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Add notes..."
-                    rows={3}
-                  />
-                )}
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add notes..."
+                  rows={3}
+                />
               </div>
 
               {/* Actions */}
-              {!readOnly && (
+              {editMode === 'new' ? (
                 <Button
                   onClick={handleMarkComplete}
                   disabled={completing}
@@ -609,6 +704,24 @@ export default function DashboardQueuePage() {
                     <>
                       <CheckCircle2 className="size-4" />
                       Mark Complete
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSaveChanges}
+                  disabled={completing}
+                  className="h-11 w-full bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+                >
+                  {completing ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="size-4" />
+                      Save Changes
                     </>
                   )}
                 </Button>
