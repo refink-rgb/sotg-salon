@@ -56,18 +56,25 @@ export default function ExpensesPage() {
   const [payoutCommission, setPayoutCommission] = useState('')
   const [submittingPayout, setSubmittingPayout] = useState(false)
 
+  // Withdrawal form
+  const [withdrawalPartner, setWithdrawalPartner] = useState('')
+  const [withdrawalAmount, setWithdrawalAmount] = useState('')
+  const [withdrawalNote, setWithdrawalNote] = useState('')
+  const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false)
+  const [partners, setPartners] = useState<{ id: string; name: string }[]>([])
+
   // Payment summary
   const [paymentSummary, setPaymentSummary] = useState<
     Record<string, number>
   >({})
 
   const fetchData = useCallback(async () => {
-    const [txRes, empRes, payRes] = await Promise.all([
+    const [txRes, empRes, payRes, partnerRes] = await Promise.all([
       supabase
         .from('transactions')
         .select('*')
         .eq('date', today)
-        .in('type', ['expense', 'salary', 'commission'])
+        .in('type', ['expense', 'salary', 'commission', 'withdrawal'])
         .order('created_at', { ascending: false }),
       supabase
         .from('employees')
@@ -78,14 +85,21 @@ export default function ExpensesPage() {
         .from('visit_payments')
         .select('method, amount, visit:visits!inner(date)')
         .eq('visit.date', today),
+      supabase
+        .from('partners')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name'),
     ])
 
     if (txRes.error) console.error(txRes.error)
     if (empRes.error) console.error(empRes.error)
     if (payRes.error) console.error(payRes.error)
+    if (partnerRes.error) console.error(partnerRes.error)
 
     setTransactions(txRes.data || [])
     setEmployees(empRes.data || [])
+    setPartners(partnerRes.data || [])
 
     // Compute payment summary
     const summary: Record<string, number> = {}
@@ -209,6 +223,39 @@ export default function ExpensesPage() {
     }
   }
 
+  async function handleAddWithdrawal(e: React.FormEvent) {
+    e.preventDefault()
+    const amt = Number(withdrawalAmount) || 0
+    if (amt <= 0) {
+      toast.error('Please enter a withdrawal amount')
+      return
+    }
+
+    setSubmittingWithdrawal(true)
+    try {
+      const partnerName = partners.find(p => p.id === withdrawalPartner)?.name || 'Owner'
+      const { error } = await supabase.from('transactions').insert({
+        date: today,
+        type: 'withdrawal',
+        amount: amt,
+        category: 'owner_draw',
+        description: withdrawalNote.trim() || `Owner withdrawal - ${partnerName}`,
+      })
+      if (error) throw error
+
+      toast.success('Withdrawal recorded')
+      setWithdrawalPartner('')
+      setWithdrawalAmount('')
+      setWithdrawalNote('')
+      fetchData()
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to record withdrawal')
+    } finally {
+      setSubmittingWithdrawal(false)
+    }
+  }
+
   function formatPHP(amount: number) {
     return `\u20B1${amount.toLocaleString()}`
   }
@@ -223,7 +270,10 @@ export default function ExpensesPage() {
   const cashPayouts = transactions
     .filter((t) => t.type === 'salary' || t.type === 'commission')
     .reduce((sum, t) => sum + t.amount, 0)
-  const expectedCash = cashReceived - cashExpenses - cashPayouts
+  const cashWithdrawals = transactions
+    .filter((t) => t.type === 'withdrawal')
+    .reduce((sum, t) => sum + t.amount, 0)
+  const expectedCash = cashReceived - cashExpenses - cashPayouts - cashWithdrawals
 
   if (loading) {
     return (
@@ -409,6 +459,76 @@ export default function ExpensesPage() {
         </CardContent>
       </Card>
 
+      {/* Owner Withdrawal */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="size-5 text-[#40916C]" />
+            Owner Withdrawal
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAddWithdrawal} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {partners.length > 0 ? (
+                <div className="space-y-1.5">
+                  <Label>Partner (optional)</Label>
+                  <Select
+                    value={withdrawalPartner}
+                    onValueChange={(v) => setWithdrawalPartner(v ?? '')}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select partner..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {partners.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div />
+              )}
+              <div className="space-y-1.5">
+                <Label>Amount</Label>
+                <Input
+                  type="number"
+                  value={withdrawalAmount}
+                  onChange={(e) => setWithdrawalAmount(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="h-8"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Note (optional)</Label>
+              <Input
+                value={withdrawalNote}
+                onChange={(e) => setWithdrawalNote(e.target.value)}
+                placeholder="e.g., Monthly draw, partial withdrawal..."
+                className="h-8"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={submittingWithdrawal}
+              className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+            >
+              {submittingWithdrawal ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}
+              Record Withdrawal
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
       {/* Today's Expenses Table */}
       <Card>
         <CardHeader>
@@ -443,12 +563,16 @@ export default function ExpensesPage() {
                         <span className="capitalize">
                           {tx.type === 'salary' && tx.category === 'service_charge'
                             ? 'Service Charge'
+                            : tx.type === 'withdrawal'
+                            ? 'Owner Draw'
                             : tx.type}
                         </span>
                       </TableCell>
                       <TableCell>
                         {tx.type === 'expense'
                           ? catLabel
+                          : tx.type === 'withdrawal'
+                          ? 'Owner Draw'
                           : emp?.name || '-'}
                       </TableCell>
                       <TableCell className="text-right font-medium">

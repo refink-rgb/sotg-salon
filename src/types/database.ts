@@ -58,7 +58,7 @@ export interface VisitPayment {
   amount: number
 }
 
-export type TransactionType = 'sale' | 'expense' | 'salary' | 'commission'
+export type TransactionType = 'sale' | 'expense' | 'salary' | 'commission' | 'withdrawal'
 
 export interface Transaction {
   id: string
