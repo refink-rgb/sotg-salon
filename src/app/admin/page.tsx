@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import {
@@ -12,9 +12,23 @@ import {
   Users,
   Upload,
   BarChart3,
+  CreditCard,
+  Loader2,
+  Plus,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { toast } from 'sonner'
 import type { Transaction, Visit } from '@/types/database'
 
 function formatCurrency(amount: number): string {
@@ -22,15 +36,24 @@ function formatCurrency(amount: number): string {
 }
 
 export default function AdminDashboard() {
+  const supabase = createClient()
+
   const [todaySales, setTodaySales] = useState(0)
   const [monthSales, setMonthSales] = useState(0)
   const [monthExpenses, setMonthExpenses] = useState(0)
   const [customerCount, setCustomerCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // Withdrawal form
+  const [partners, setPartners] = useState<{ id: string; name: string }[]>([])
+  const [wdPartner, setWdPartner] = useState('')
+  const [wdAmount, setWdAmount] = useState('')
+  const [wdDate, setWdDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [wdNote, setWdNote] = useState('')
+  const [submittingWd, setSubmittingWd] = useState(false)
+
   useEffect(() => {
     async function fetchData() {
-      const supabase = createClient()
       const today = format(new Date(), 'yyyy-MM-dd')
       const monthStart = format(new Date(), 'yyyy-MM-01')
 
@@ -76,6 +99,14 @@ export default function AdminDashboard() {
           .gte('date', monthStart)
 
         setCustomerCount(count ?? 0)
+
+        // Fetch partners
+        const { data: partnerData } = await supabase
+          .from('partners')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name')
+        setPartners(partnerData || [])
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
       } finally {
@@ -85,6 +116,39 @@ export default function AdminDashboard() {
 
     fetchData()
   }, [])
+
+  async function handleWithdrawal(e: React.FormEvent) {
+    e.preventDefault()
+    const amt = Number(wdAmount) || 0
+    if (amt <= 0) {
+      toast.error('Please enter a withdrawal amount')
+      return
+    }
+
+    setSubmittingWd(true)
+    try {
+      const partnerName = partners.find(p => p.id === wdPartner)?.name || 'Owner'
+      const { error } = await supabase.from('transactions').insert({
+        date: wdDate,
+        type: 'withdrawal',
+        amount: amt,
+        category: 'owner_draw',
+        description: wdNote.trim() || `Owner withdrawal - ${partnerName}`,
+      })
+      if (error) throw error
+
+      toast.success('Withdrawal recorded')
+      setWdPartner('')
+      setWdAmount('')
+      setWdNote('')
+      setWdDate(format(new Date(), 'yyyy-MM-dd'))
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to record withdrawal')
+    } finally {
+      setSubmittingWd(false)
+    }
+  }
 
   const quickLinks = [
     { href: '/admin/income-statement', label: 'Income Statement', icon: FileText, desc: 'Monthly P&L view' },
@@ -151,6 +215,84 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Owner Withdrawal */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="size-5 text-[#40916C]" />
+            Owner Withdrawal
+          </CardTitle>
+          <p className="text-xs text-gray-500">Cash draw only — does not appear in P&L or expenses</p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleWithdrawal} className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label>Date</Label>
+                <Input
+                  type="date"
+                  value={wdDate}
+                  onChange={(e) => setWdDate(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              {partners.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Partner</Label>
+                  <Select
+                    value={wdPartner}
+                    onValueChange={(v) => setWdPartner(v ?? '')}
+                  >
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {partners.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label>Amount</Label>
+                <Input
+                  type="number"
+                  value={wdAmount}
+                  onChange={(e) => setWdAmount(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Note</Label>
+                <Input
+                  value={wdNote}
+                  onChange={(e) => setWdNote(e.target.value)}
+                  placeholder="Optional note..."
+                  className="h-9"
+                />
+              </div>
+            </div>
+            <Button
+              type="submit"
+              disabled={submittingWd}
+              className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+            >
+              {submittingWd ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}
+              Record Withdrawal
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Quick Links */}
       <div>
