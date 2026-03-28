@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, TableFooter } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Employee, DailyAttendance, Transaction, Visit } from '@/types/database'
 import type { CommissionResult } from '@/lib/commission'
@@ -60,6 +60,18 @@ export default function PayrollPage() {
     is_in_service_charge_pool: true,
   })
   const [saving, setSaving] = useState(false)
+
+  // Edit Employee dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editEmp, setEditEmp] = useState({
+    id: '',
+    name: '',
+    daily_rate: '',
+    commission_per_head_rate: '',
+    commission_percentage: '',
+    is_in_service_charge_pool: true,
+    is_active: true,
+  })
 
   // Settings
   const [scThreshold, setScThreshold] = useState(3000)
@@ -205,6 +217,53 @@ export default function PayrollPage() {
     } catch (error) {
       console.error('Error:', error)
       toast.error('Failed to add employee')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openEditEmployee = (emp: Employee) => {
+    setEditEmp({
+      id: emp.id,
+      name: emp.name,
+      daily_rate: String(emp.daily_rate),
+      commission_per_head_rate: String(emp.commission_per_head_rate),
+      commission_percentage: String(emp.commission_percentage * 100),
+      is_in_service_charge_pool: emp.is_in_service_charge_pool,
+      is_active: emp.is_active,
+    })
+    setEditDialogOpen(true)
+  }
+
+  const handleEditEmployee = async () => {
+    if (!editEmp.name.trim()) {
+      toast.error('Name is required')
+      return
+    }
+    setSaving(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('employees')
+        .update({
+          name: editEmp.name.trim(),
+          daily_rate: Number(editEmp.daily_rate) || 0,
+          commission_per_head_rate: Number(editEmp.commission_per_head_rate) || 0,
+          commission_percentage: Number(editEmp.commission_percentage) / 100 || 0,
+          is_in_service_charge_pool: editEmp.is_in_service_charge_pool,
+          is_active: editEmp.is_active,
+        })
+        .eq('id', editEmp.id)
+      if (error) throw error
+      toast.success('Employee updated')
+      setEditDialogOpen(false)
+
+      // Refresh
+      const { data } = await supabase.from('employees').select('*').order('name')
+      setEmployees(data ?? [])
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Failed to update employee')
     } finally {
       setSaving(false)
     }
@@ -366,6 +425,7 @@ export default function PayrollPage() {
                 <TableHead className="text-right">Per Head</TableHead>
                 <TableHead>SC Pool</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -382,11 +442,16 @@ export default function PayrollPage() {
                       {emp.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="ghost" onClick={() => openEditEmployee(emp)}>
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {employees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">No employees found</TableCell>
+                  <TableCell colSpan={8} className="text-center text-gray-500 py-8">No employees found</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -508,6 +573,57 @@ export default function PayrollPage() {
           )}
         </CardContent>
       </Card>
+      {/* Edit Employee Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Employee</DialogTitle>
+            <DialogDescription>Update employee pay rates and settings.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="edit-name">Name</Label>
+              <Input id="edit-name" value={editEmp.name} onChange={e => setEditEmp(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="edit-rate">Daily Rate</Label>
+                <Input id="edit-rate" type="number" value={editEmp.daily_rate} onChange={e => setEditEmp(p => ({ ...p, daily_rate: e.target.value }))} />
+              </div>
+              <div>
+                <Label htmlFor="edit-perhead">Per Head Rate</Label>
+                <Input id="edit-perhead" type="number" value={editEmp.commission_per_head_rate} onChange={e => setEditEmp(p => ({ ...p, commission_per_head_rate: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-comm">Commission %</Label>
+              <Input id="edit-comm" type="number" value={editEmp.commission_percentage} onChange={e => setEditEmp(p => ({ ...p, commission_percentage: e.target.value }))} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={editEmp.is_in_service_charge_pool}
+                onCheckedChange={v => setEditEmp(p => ({ ...p, is_in_service_charge_pool: v }))}
+                id="edit-sc"
+              />
+              <Label htmlFor="edit-sc">In Service Charge Pool</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={editEmp.is_active}
+                onCheckedChange={v => setEditEmp(p => ({ ...p, is_active: v }))}
+                id="edit-active"
+              />
+              <Label htmlFor="edit-active">Active</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditEmployee} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
