@@ -1,10 +1,11 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Scissors, LogOut, ClipboardList, Receipt, Users } from 'lucide-react'
+import { Scissors, LogOut, ClipboardList, Receipt, Users, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -22,6 +23,22 @@ export default function DashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    async function checkRole() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        setIsAdmin(profile?.role === 'admin')
+      }
+    }
+    checkRole()
+  }, [])
 
   async function handleLogout() {
     const { error } = await supabase.auth.signOut()
@@ -68,7 +85,17 @@ export default function DashboardLayout({
             })}
           </nav>
 
-          {/* Logout */}
+          {/* Admin Link + Logout */}
+          <div className="flex items-center gap-1">
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              <Settings className="size-4" />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -78,6 +105,7 @@ export default function DashboardLayout({
             <LogOut className="size-4" />
             <span className="hidden sm:inline">Logout</span>
           </Button>
+          </div>
         </div>
       </header>
 
