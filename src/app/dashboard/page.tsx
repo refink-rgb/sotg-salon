@@ -23,9 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Clock,
   CheckCircle2,
+  Timer,
   Loader2,
   Phone,
   MapPin,
@@ -36,7 +38,7 @@ import {
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { PAYMENT_METHODS } from '@/lib/constants'
-import type { Visit, PaymentMethod } from '@/types/database'
+import type { Visit, PaymentMethod, Service } from '@/types/database'
 
 interface PaymentEntry {
   method: PaymentMethod
@@ -58,6 +60,10 @@ export default function DashboardQueuePage() {
   )
   const todayStr = new Date().toISOString().split('T')[0]
 
+  // All active services (for checkbox editing)
+  const [allServices, setAllServices] = useState<Service[]>([])
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([])
+
   // Form state for completing/editing a visit
   const [totalPrice, setTotalPrice] = useState('')
   const [payments, setPayments] = useState<PaymentEntry[]>([
@@ -72,6 +78,19 @@ export default function DashboardQueuePage() {
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 60000)
     return () => clearInterval(interval)
+  }, [])
+
+  // Fetch all active services on mount
+  useEffect(() => {
+    async function fetchServices() {
+      const { data } = await supabase
+        .from('services')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+      if (data) setAllServices(data)
+    }
+    fetchServices()
   }, [])
 
   const fetchVisits = useCallback(async () => {
@@ -133,8 +152,21 @@ export default function DashboardQueuePage() {
       setPayments([{ method: 'cash', amount: '' }])
     }
 
+    // Initialize selected services from visit
+    setSelectedServiceIds(
+      visit.visit_services?.map((vs) => vs.service_id) || []
+    )
+
     setNotes(visit.notes || '')
     setSheetOpen(true)
+  }
+
+  function toggleServiceId(serviceId: string) {
+    setSelectedServiceIds((prev) =>
+      prev.includes(serviceId)
+        ? prev.filter((id) => id !== serviceId)
+        : [...prev, serviceId]
+    )
   }
 
   function handleTotalPriceChange(value: string) {
@@ -182,6 +214,11 @@ export default function DashboardQueuePage() {
   async function handleMarkComplete() {
     if (!selectedVisit) return
 
+    if (selectedServiceIds.length === 0) {
+      toast.error('Please select at least one service')
+      return
+    }
+
     if (totalPriceNum <= 0) {
       toast.error('Please enter a total price')
       return
@@ -213,6 +250,24 @@ export default function DashboardQueuePage() {
         })
         .eq('id', selectedVisit.id)
       if (visitError) throw visitError
+
+      // Update visit_services: delete old, insert new
+      await supabase
+        .from('visit_services')
+        .delete()
+        .eq('visit_id', selectedVisit.id)
+
+      if (selectedServiceIds.length > 0) {
+        const serviceRecords = selectedServiceIds.map((serviceId) => ({
+          visit_id: selectedVisit.id,
+          service_id: serviceId,
+          price: null,
+        }))
+        const { error: svcError } = await supabase
+          .from('visit_services')
+          .insert(serviceRecords)
+        if (svcError) throw svcError
+      }
 
       // Delete existing visit_payments then insert new ones
       await supabase
@@ -267,6 +322,11 @@ export default function DashboardQueuePage() {
   async function handleSaveChanges() {
     if (!selectedVisit) return
 
+    if (selectedServiceIds.length === 0) {
+      toast.error('Please select at least one service')
+      return
+    }
+
     if (totalPriceNum <= 0) {
       toast.error('Please enter a total price')
       return
@@ -296,6 +356,24 @@ export default function DashboardQueuePage() {
         })
         .eq('id', selectedVisit.id)
       if (visitError) throw visitError
+
+      // Update visit_services: delete old, insert new
+      await supabase
+        .from('visit_services')
+        .delete()
+        .eq('visit_id', selectedVisit.id)
+
+      if (selectedServiceIds.length > 0) {
+        const serviceRecords = selectedServiceIds.map((serviceId) => ({
+          visit_id: selectedVisit.id,
+          service_id: serviceId,
+          price: null,
+        }))
+        const { error: svcError } = await supabase
+          .from('visit_services')
+          .insert(serviceRecords)
+        if (svcError) throw svcError
+      }
 
       // Delete existing visit_payments then insert new ones
       await supabase
@@ -350,12 +428,12 @@ export default function DashboardQueuePage() {
     const diffMs = now.getTime() - created.getTime()
     const diffMin = Math.floor(diffMs / 60000)
 
-    if (diffMin < 1) return 'just now'
-    if (diffMin < 60) return `${diffMin} min ago`
+    if (diffMin < 1) return '< 1 min'
+    if (diffMin < 60) return `${diffMin} min`
     const hours = Math.floor(diffMin / 60)
     const mins = diffMin % 60
-    if (mins === 0) return `${hours}h ago`
-    return `${hours}h ${mins}m ago`
+    if (mins === 0) return `${hours}h`
+    return `${hours}h ${mins}m`
   }
 
   if (loading) {
@@ -457,13 +535,15 @@ export default function DashboardQueuePage() {
                             ))}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(visit.created_at), 'h:mm a')}
-                          </span>
-                          <p className="mt-0.5 text-xs font-medium text-[#40916C]">
-                            {formatElapsed(visit.created_at)}
-                          </p>
+                        <div className="space-y-1 text-right">
+                          <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                            <Clock className="size-3" />
+                            <span>Checked in: {format(new Date(visit.created_at), 'h:mm a')}</span>
+                          </div>
+                          <div className="flex items-center justify-end gap-1 text-xs font-medium text-[#40916C]">
+                            <Timer className="size-3" />
+                            <span>In salon: {formatElapsed(visit.created_at)}</span>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -509,14 +589,19 @@ export default function DashboardQueuePage() {
                             ))}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="space-y-1 text-right">
                           <p className="font-semibold text-[#1B4332]">
                             {formatPHP(visit.total_amount || 0)}
                           </p>
+                          <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                            <Clock className="size-3" />
+                            <span>Checked in: {format(new Date(visit.created_at), 'h:mm a')}</span>
+                          </div>
                           {visit.completed_at && (
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(visit.completed_at), 'h:mm a')}
-                            </p>
+                            <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                              <CheckCircle2 className="size-3" />
+                              <span>Completed: {format(new Date(visit.completed_at), 'h:mm a')}</span>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -563,14 +648,25 @@ export default function DashboardQueuePage() {
 
               <Separator />
 
-              {/* Services (read-only list) */}
+              {/* Services (editable checkboxes) */}
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold">Services</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedVisit.visit_services?.map((vs) => (
-                    <Badge key={vs.id} variant="secondary">
-                      {vs.service?.name}
-                    </Badge>
+                <div className="grid grid-cols-2 gap-3">
+                  {allServices.map((service) => (
+                    <label
+                      key={service.id}
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border p-3 transition-colors ${
+                        selectedServiceIds.includes(service.id)
+                          ? 'border-[#40916C] bg-[#40916C]/10'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Checkbox
+                        checked={selectedServiceIds.includes(service.id)}
+                        onCheckedChange={() => toggleServiceId(service.id)}
+                      />
+                      <span className="text-sm font-medium">{service.name}</span>
+                    </label>
                   ))}
                 </div>
               </div>
