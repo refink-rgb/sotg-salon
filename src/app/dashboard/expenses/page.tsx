@@ -48,6 +48,7 @@ export default function ExpensesPage() {
   const [expAmount, setExpAmount] = useState('')
   const [expNote, setExpNote] = useState('')
   const [submittingExpense, setSubmittingExpense] = useState(false)
+  const [expBackOffice, setExpBackOffice] = useState(false)
 
   // Payout form
   const [payoutEmployee, setPayoutEmployee] = useState('')
@@ -55,6 +56,7 @@ export default function ExpensesPage() {
   const [payoutSC, setPayoutSC] = useState('')
   const [payoutCommission, setPayoutCommission] = useState('')
   const [submittingPayout, setSubmittingPayout] = useState(false)
+  const [payoutBackOffice, setPayoutBackOffice] = useState(false)
   const [quickCategory, setQuickCategory] = useState<string | null>(null)
   const [quickAmount, setQuickAmount] = useState('')
   const [submittingQuick, setSubmittingQuick] = useState(false)
@@ -123,6 +125,7 @@ export default function ExpensesPage() {
         amount: Number(expAmount),
         category: expCategory,
         description: expNote.trim() || categoryLabel,
+        is_back_office: expBackOffice,
       })
       if (error) throw error
 
@@ -130,6 +133,7 @@ export default function ExpensesPage() {
       setExpCategory('')
       setExpAmount('')
       setExpNote('')
+      setExpBackOffice(false)
       fetchData()
     } catch (error) {
       console.error(error)
@@ -164,6 +168,7 @@ export default function ExpensesPage() {
         employee_id: string
         category?: string
         description: string
+        is_back_office: boolean
       }[] = []
 
       if (salaryVal > 0) {
@@ -174,6 +179,7 @@ export default function ExpensesPage() {
           employee_id: payoutEmployee,
           category: 'salary',
           description: `Salary - ${emp?.name || 'Unknown'}`,
+          is_back_office: payoutBackOffice,
         })
       }
       if (scVal > 0) {
@@ -184,6 +190,7 @@ export default function ExpensesPage() {
           employee_id: payoutEmployee,
           category: 'service_charge',
           description: `Service Charge - ${emp?.name || 'Unknown'}`,
+          is_back_office: payoutBackOffice,
         })
       }
       if (commissionVal > 0) {
@@ -193,6 +200,7 @@ export default function ExpensesPage() {
           amount: commissionVal,
           employee_id: payoutEmployee,
           description: `Commission - ${emp?.name || 'Unknown'}`,
+          is_back_office: payoutBackOffice,
         })
       }
 
@@ -204,6 +212,7 @@ export default function ExpensesPage() {
       setPayoutSalary('')
       setPayoutSC('')
       setPayoutCommission('')
+      setPayoutBackOffice(false)
       fetchData()
     } catch (error) {
       console.error(error)
@@ -396,18 +405,24 @@ export default function ExpensesPage() {
                 className="h-8"
               />
             </div>
-            <Button
-              type="submit"
-              disabled={submittingExpense}
-              className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
-            >
-              {submittingExpense ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" />
-              )}
-              Add Expense
-            </Button>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                <input type="checkbox" checked={expBackOffice} onChange={e => setExpBackOffice(e.target.checked)} className="rounded" />
+                Back office (hidden from daily summary)
+              </label>
+              <Button
+                type="submit"
+                disabled={submittingExpense}
+                className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+              >
+                {submittingExpense ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Plus className="size-4" />
+                )}
+                Add Expense
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -475,18 +490,24 @@ export default function ExpensesPage() {
                 />
               </div>
             </div>
-            <Button
-              type="submit"
-              disabled={submittingPayout}
-              className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
-            >
-              {submittingPayout ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" />
-              )}
-              Record Payout
-            </Button>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                <input type="checkbox" checked={payoutBackOffice} onChange={e => setPayoutBackOffice(e.target.checked)} className="rounded" />
+                Back office
+              </label>
+              <Button
+                type="submit"
+                disabled={submittingPayout}
+                className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+              >
+                {submittingPayout ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Plus className="size-4" />
+                )}
+                Record Payout
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>

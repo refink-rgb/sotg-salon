@@ -92,6 +92,7 @@ export default function TransactionsPage() {
     employee_id: '',
     payment_method: '',
     description: '',
+    is_back_office: false,
   })
 
   // Fetch employees on mount
@@ -124,7 +125,7 @@ export default function TransactionsPage() {
         type: newTxn.type,
         amount: amt,
         description: newTxn.description.trim() || null,
-        is_back_office: true,
+        is_back_office: newTxn.is_back_office,
       }
 
       if (newTxn.type === 'expense' && newTxn.category) {
@@ -153,6 +154,7 @@ export default function TransactionsPage() {
         employee_id: '',
         payment_method: '',
         description: '',
+        is_back_office: false,
       })
       await fetchTransactions()
     } catch (error) {
@@ -834,6 +836,10 @@ export default function TransactionsPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setNewTxnOpen(false)}>Cancel</Button>
+              <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
+                <input type="checkbox" checked={newTxn.is_back_office} onChange={e => setNewTxn(p => ({ ...p, is_back_office: e.target.checked }))} className="rounded" />
+                Back office (hidden from stylist daily summary)
+              </label>
               <Button
                 type="submit"
                 disabled={newTxnSaving}

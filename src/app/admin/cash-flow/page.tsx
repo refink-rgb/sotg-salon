@@ -38,6 +38,7 @@ export default function CashFlowPage() {
   const [wdDate, setWdDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [wdNote, setWdNote] = useState('')
   const [submittingWd, setSubmittingWd] = useState(false)
+  const [wdBackOffice, setWdBackOffice] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
@@ -101,7 +102,7 @@ export default function CashFlowPage() {
         amount: amt,
         category: 'owner_draw',
         description: wdNote.trim() || `Owner withdrawal - ${partnerName}`,
-        is_back_office: true,
+        is_back_office: wdBackOffice,
       })
       if (error) throw error
 
@@ -268,18 +269,24 @@ export default function CashFlowPage() {
                 />
               </div>
             </div>
-            <Button
-              type="submit"
-              disabled={submittingWd}
-              className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
-            >
-              {submittingWd ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" />
-              )}
-              Record Withdrawal
-            </Button>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                <input type="checkbox" checked={wdBackOffice} onChange={e => setWdBackOffice(e.target.checked)} className="rounded" />
+                Back office (hidden from stylist)
+              </label>
+              <Button
+                type="submit"
+                disabled={submittingWd}
+                className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+              >
+                {submittingWd ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Plus className="size-4" />
+                )}
+                Record Withdrawal
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
