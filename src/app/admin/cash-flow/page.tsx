@@ -110,13 +110,13 @@ export default function CashFlowPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Cash Flow</h1>
         <div className="flex items-center gap-2">
-          <Select value={String(selectedMonth)} onValueChange={v => setSelectedMonth(Number(v))}>
+          <Select value={MONTHS[selectedMonth]} onValueChange={v => setSelectedMonth(MONTHS.indexOf(v as typeof MONTHS[number]))}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {MONTHS.map((m, i) => (
-                <SelectItem key={i} value={String(i)}>{m}</SelectItem>
+              {MONTHS.map((m) => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
               ))}
             </SelectContent>
           </Select>

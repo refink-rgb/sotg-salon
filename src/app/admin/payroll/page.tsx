@@ -529,13 +529,13 @@ export default function PayrollPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Monthly Payroll</CardTitle>
           <div className="flex items-center gap-2">
-            <Select value={String(selectedMonth)} onValueChange={v => setSelectedMonth(Number(v))}>
+            <Select value={MONTHS[selectedMonth]} onValueChange={v => setSelectedMonth(MONTHS.indexOf(v as typeof MONTHS[number]))}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {MONTHS.map((m, i) => (
-                  <SelectItem key={i} value={String(i)}>{m}</SelectItem>
+                {MONTHS.map((m) => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
