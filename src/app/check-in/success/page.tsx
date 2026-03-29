@@ -8,6 +8,7 @@ export default function CheckInSuccessPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4">
       <div className="flex flex-col items-center text-center">
+        <img src="/logo-192.png" alt="Salon On The Go" className="h-20 w-20 rounded-full mb-4" />
         <CheckCircle2 className="size-20 text-[#40916C]" />
         <h1 className="mt-6 text-2xl font-bold text-[#1B4332]">Thank You!</h1>
         <p className="mt-2 text-base text-gray-600">

@@ -43,8 +43,9 @@ function SidebarContent({ pathname, onLogout }: { pathname: string; onLogout: ()
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-white/10">
-        <h1 className="text-xl font-bold tracking-tight">SOTG</h1>
-        <p className="text-xs text-white/60">Salon On The Go</p>
+        <img src="/logo-192.png" alt="SOTG" className="h-12 w-12 rounded-full mx-auto mb-2" />
+        <h1 className="text-xl font-bold tracking-tight text-center">SOTG</h1>
+        <p className="text-xs text-white/60 text-center">Salon On The Go</p>
       </div>
 
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">

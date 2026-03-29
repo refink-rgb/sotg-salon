@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Scissors } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Service } from '@/types/database'
 
@@ -131,10 +131,8 @@ export default function CheckInPage() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="bg-[#1B4332] px-4 py-6 text-center">
-        <div className="flex items-center justify-center gap-2">
-          <Scissors className="size-7 text-white" />
-          <h1 className="text-2xl font-bold text-white">Salon On The Go</h1>
-        </div>
+        <img src="/logo-192.png" alt="Salon On The Go" className="h-20 w-20 mx-auto rounded-full" />
+        <h1 className="mt-3 text-2xl font-bold text-white">Salon On The Go</h1>
         <p className="mt-1 text-sm text-green-200">Welcome! Please check in below.</p>
       </div>
 

@@ -38,12 +38,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <img src="/logo-192.png" alt="Salon On The Go" className="h-24 w-24 rounded-full mb-6" />
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary">
-            <span className="text-xl font-bold text-primary-foreground">S</span>
-          </div>
           <CardTitle className="text-2xl font-bold text-primary">
             Salon On The Go
           </CardTitle>

@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Scissors, LogOut, ClipboardList, Receipt, Users, Settings, BarChart3 } from 'lucide-react'
+import { LogOut, ClipboardList, Receipt, Users, Settings, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -57,7 +57,7 @@ export default function DashboardLayout({
         <div className="flex h-14 items-center justify-between px-4">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <Scissors className="size-5" />
+            <img src="/logo-64.png" alt="SOTG" className="h-8 w-8 rounded-full" />
             <span className="text-lg font-bold">SOTG</span>
           </div>
 
