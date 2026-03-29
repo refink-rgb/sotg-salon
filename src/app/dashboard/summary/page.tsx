@@ -54,6 +54,7 @@ export default function SummaryPage() {
         .from('transactions')
         .select('*')
         .eq('date', today)
+        .eq('is_back_office', false)
         .order('created_at', { ascending: false }),
       supabase
         .from('visit_payments')

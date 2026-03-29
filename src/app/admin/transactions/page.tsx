@@ -124,6 +124,7 @@ export default function TransactionsPage() {
         type: newTxn.type,
         amount: amt,
         description: newTxn.description.trim() || null,
+        is_back_office: true,
       }
 
       if (newTxn.type === 'expense' && newTxn.category) {
@@ -603,9 +604,14 @@ export default function TransactionsPage() {
                     </TableCell>
                     <TableCell>{format(new Date(txn.date), 'MMM d, yyyy')}</TableCell>
                     <TableCell>
-                      <Badge variant={typeBadgeVariant(txn.type)}>
-                        {txn.type.charAt(0).toUpperCase() + txn.type.slice(1)}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge variant={typeBadgeVariant(txn.type)}>
+                          {txn.type.charAt(0).toUpperCase() + txn.type.slice(1)}
+                        </Badge>
+                        {txn.is_back_office && (
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 text-gray-400 border-gray-300">BO</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{categoryLabel(txn.category)}</TableCell>
                     <TableCell className="max-w-[200px] truncate">{txn.description || '-'}</TableCell>

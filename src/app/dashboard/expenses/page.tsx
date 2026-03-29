@@ -70,6 +70,7 @@ export default function ExpensesPage() {
         .from('transactions')
         .select('*')
         .eq('date', today)
+        .eq('is_back_office', false)
         .in('type', ['expense', 'salary', 'commission', 'withdrawal'])
         .order('created_at', { ascending: false }),
       supabase

@@ -75,6 +75,7 @@ export interface Transaction {
   employee_id: string | null
   created_by: string | null
   created_at: string
+  is_back_office: boolean
 }
 
 export type ExpenseCategory = 'rent' | 'electric' | 'water' | 'wifi' | 'food' | 'meds' | 'ads' | 'pagibig' | 'bir' | 'other'

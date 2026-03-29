@@ -101,6 +101,7 @@ export default function CashFlowPage() {
         amount: amt,
         category: 'owner_draw',
         description: wdNote.trim() || `Owner withdrawal - ${partnerName}`,
+        is_back_office: true,
       })
       if (error) throw error
 

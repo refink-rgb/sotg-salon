@@ -335,6 +335,7 @@ export default function PayrollPage() {
         description: `Payroll payout for ${MONTHS[selectedMonth]} ${selectedYear}`,
         employee_id: empResult.employeeId,
         payment_method: 'cash',
+        is_back_office: true,
       })
       if (error) throw error
       toast.success(`Paid ${formatCurrency(empResult.remaining)} to ${empResult.employeeName}`)
