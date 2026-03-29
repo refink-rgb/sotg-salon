@@ -14,7 +14,7 @@ import {
   subWeeks,
   subMonths,
 } from 'date-fns'
-import { Trash2, Pencil } from 'lucide-react'
+import { Trash2, Pencil, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -75,6 +75,9 @@ export default function TransactionsPage() {
   const [editTransaction, setEditTransaction] = useState<TransactionWithEmployee | null>(null)
   const [editForm, setEditForm] = useState({ amount: '', category: '', description: '', date: '' })
   const [editSaving, setEditSaving] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortField, setSortField] = useState<'date' | 'amount'>('date')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   function applyPreset(preset: string) {
     const today = new Date()
@@ -151,9 +154,32 @@ export default function TransactionsPage() {
   }
 
   const filtered = useMemo(() => {
-    if (categoryFilters.size === 0 || typeFilter !== 'expense') return transactions
-    return transactions.filter(t => t.category && categoryFilters.has(t.category))
-  }, [transactions, categoryFilters, typeFilter])
+    let result = transactions
+
+    // Category filter (only when viewing expenses)
+    if (typeFilter === 'expense' && categoryFilters.size > 0) {
+      result = result.filter(t => t.category && categoryFilters.has(t.category))
+    }
+
+    // Description search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase()
+      result = result.filter(t => t.description?.toLowerCase().includes(query))
+    }
+
+    // Sorting
+    result = [...result].sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'date') {
+        cmp = a.date.localeCompare(b.date)
+      } else {
+        cmp = a.amount - b.amount
+      }
+      return sortDirection === 'asc' ? cmp : -cmp
+    })
+
+    return result
+  }, [transactions, categoryFilters, typeFilter, searchQuery, sortField, sortDirection])
 
   const summary = useMemo(() => {
     const totalSales = filtered.filter(t => t.type === 'sale').reduce((s, t) => s + t.amount, 0)
@@ -192,6 +218,22 @@ export default function TransactionsPage() {
       case 'withdrawal': return 'outline'
       default: return 'secondary'
     }
+  }
+
+  const toggleSort = (field: 'date' | 'amount') => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDirection(field === 'date' ? 'desc' : 'desc')
+    }
+  }
+
+  const SortIcon = ({ field }: { field: 'date' | 'amount' }) => {
+    if (sortField !== field) return <ArrowUpDown className="inline size-3.5 ml-1 text-gray-400" />
+    return sortDirection === 'asc'
+      ? <ChevronUp className="inline size-3.5 ml-1" />
+      : <ChevronDown className="inline size-3.5 ml-1" />
   }
 
   const toggleSelect = (id: string) => {
@@ -295,6 +337,16 @@ export default function TransactionsPage() {
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
                 className="w-40"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">Search description</Label>
+              <Input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-48"
               />
             </div>
             <div className="flex flex-wrap gap-1">
@@ -418,11 +470,21 @@ export default function TransactionsPage() {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none hover:bg-gray-50"
+                    onClick={() => toggleSort('date')}
+                  >
+                    Date <SortIcon field="date" />
+                  </TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer select-none hover:bg-gray-50"
+                    onClick={() => toggleSort('amount')}
+                  >
+                    Amount <SortIcon field="amount" />
+                  </TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead />

@@ -7,9 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { Plus, Trash2, TrendingUp, Calculator } from 'lucide-react'
+import { Plus, Trash2, TrendingUp, Calculator, Megaphone } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Transaction, RecurringExpense, Partner } from '@/types/database'
+import type { Transaction, RecurringExpense, Partner, Visit } from '@/types/database'
 
 function formatCurrency(amount: number): string {
   if (amount < 0) {
@@ -33,6 +33,7 @@ interface WhatIfItem {
 export default function ForecastingPage() {
   const now = new Date()
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [completedVisits, setCompletedVisits] = useState<Visit[]>([])
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([])
   const [partners, setPartners] = useState<Partner[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,11 +44,24 @@ export default function ForecastingPage() {
   const [newWhatIfName, setNewWhatIfName] = useState('')
   const [newWhatIfAmount, setNewWhatIfAmount] = useState('')
 
+  // Revenue forecasting inputs
+  const [revDaysRemaining, setRevDaysRemaining] = useState(0)
+  const [dailyAdSpend, setDailyAdSpend] = useState(300)
+  const [costPerMessage, setCostPerMessage] = useState(15)
+  const [conversionRate, setConversionRate] = useState(13)
+  const [avgOrderValue, setAvgOrderValue] = useState(0)
+  const [avgOrderOverridden, setAvgOrderOverridden] = useState(false)
+
   const monthStr = format(now, 'yyyy-MM')
   const monthStart = `${monthStr}-01`
   const totalDaysInMonth = getDaysInMonth(now)
   const daysElapsed = now.getDate()
   const daysRemaining = totalDaysInMonth - daysElapsed
+
+  // Initialize revDaysRemaining when daysRemaining is computed
+  useEffect(() => {
+    setRevDaysRemaining(daysRemaining)
+  }, [daysRemaining])
 
   useEffect(() => {
     async function fetchData() {
@@ -56,19 +70,30 @@ export default function ForecastingPage() {
       const monthEnd = `${monthStr}-${String(totalDaysInMonth).padStart(2, '0')}`
 
       try {
-        const [txnRes, reRes, partnerRes] = await Promise.all([
+        const [txnRes, reRes, partnerRes, visitsRes] = await Promise.all([
           supabase.from('transactions').select('*').gte('date', monthStart).lte('date', monthEnd),
           supabase.from('recurring_expenses').select('*').eq('is_active', true),
           supabase.from('partners').select('*').eq('is_active', true),
+          supabase.from('visits').select('*').gte('date', monthStart).lte('date', monthEnd).eq('status', 'completed'),
         ])
 
         if (txnRes.error) throw txnRes.error
         if (reRes.error) throw reRes.error
         if (partnerRes.error) throw partnerRes.error
+        if (visitsRes.error) throw visitsRes.error
 
         setTransactions(txnRes.data ?? [])
         setRecurringExpenses(reRes.data ?? [])
         setPartners(partnerRes.data ?? [])
+        setCompletedVisits(visitsRes.data ?? [])
+
+        // Calculate avg order value from completed visits
+        const visits = visitsRes.data ?? []
+        const visitsWithAmount = visits.filter((v: Visit) => v.total_amount && v.total_amount > 0)
+        if (visitsWithAmount.length > 0) {
+          const avg = visitsWithAmount.reduce((s: number, v: Visit) => s + (v.total_amount || 0), 0) / visitsWithAmount.length
+          setAvgOrderValue(Math.round(avg))
+        }
 
         // Build initial projected expenses from recurring
         const actualByCategory: Record<string, number> = {}
@@ -114,6 +139,26 @@ export default function ForecastingPage() {
 
     return { salesToDate, expensesToDate, dailyPace, projectedMonthSales }
   }, [transactions, daysElapsed, totalDaysInMonth])
+
+  // Revenue forecasting calculations
+  const revForecast = useMemo(() => {
+    const remainingAdSpend = dailyAdSpend * revDaysRemaining
+    const expectedMessages = costPerMessage > 0 ? remainingAdSpend / costPerMessage : 0
+    const expectedNewCustomers = expectedMessages * (conversionRate / 100)
+    const expectedRevenue = expectedNewCustomers * avgOrderValue
+    const totalProjectedMonthRevenue = actuals.salesToDate + expectedRevenue
+    const totalRemainingExpenses = projectedExpenses.reduce((s, e) => s + e.amount, 0)
+    const projectedProfit = totalProjectedMonthRevenue - actuals.expensesToDate - totalRemainingExpenses
+
+    return {
+      remainingAdSpend,
+      expectedMessages,
+      expectedNewCustomers,
+      expectedRevenue,
+      totalProjectedMonthRevenue,
+      projectedProfit,
+    }
+  }, [dailyAdSpend, revDaysRemaining, costPerMessage, conversionRate, avgOrderValue, actuals, projectedExpenses])
 
   const totalProjectedExpenses = useMemo(
     () => projectedExpenses.reduce((s, e) => s + e.amount, 0),
@@ -215,6 +260,168 @@ export default function ForecastingPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Revenue What-If Analysis */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Megaphone className="size-5" /> Revenue What-If Analysis
+              </CardTitle>
+              <p className="text-sm text-gray-500 mt-1">
+                Forecast revenue from ad spend for the rest of {format(now, 'MMMM yyyy')}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Inputs */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Inputs</h3>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">Days remaining in month</label>
+                      <Input
+                        type="number"
+                        value={revDaysRemaining}
+                        onChange={e => setRevDaysRemaining(Number(e.target.value) || 0)}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">Daily ad spend</label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₱</span>
+                        <Input
+                          type="number"
+                          value={dailyAdSpend || ''}
+                          onChange={e => setDailyAdSpend(Number(e.target.value) || 0)}
+                          className="pl-6"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">Cost per message / lead</label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₱</span>
+                        <Input
+                          type="number"
+                          value={costPerMessage || ''}
+                          onChange={e => setCostPerMessage(Number(e.target.value) || 0)}
+                          className="pl-6"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">Conversion rate</label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={conversionRate || ''}
+                          onChange={e => setConversionRate(Number(e.target.value) || 0)}
+                          className="pr-8"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">
+                        Average order value
+                        {!avgOrderOverridden && completedVisits.length > 0 && (
+                          <span className="text-xs text-gray-400 ml-1">(auto from {completedVisits.filter(v => v.total_amount && v.total_amount > 0).length} visits)</span>
+                        )}
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₱</span>
+                        <Input
+                          type="number"
+                          value={avgOrderValue || ''}
+                          onChange={e => {
+                            setAvgOrderValue(Number(e.target.value) || 0)
+                            setAvgOrderOverridden(true)
+                          }}
+                          className="pl-6"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Results */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Projected Results</h3>
+
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Remaining ad spend</span>
+                      <span className="font-medium">{formatCurrency(revForecast.remainingAdSpend)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Expected messages</span>
+                      <span className="font-medium">{Math.round(revForecast.expectedMessages).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Expected new customers</span>
+                      <span className="font-medium">{revForecast.expectedNewCustomers.toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Expected revenue (from ads)</span>
+                      <span className="font-medium text-green-700">{formatCurrency(revForecast.expectedRevenue)}</span>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Actual sales to date</span>
+                      <span className="font-medium">{formatCurrency(actuals.salesToDate)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold">
+                      <span>Total projected month revenue</span>
+                      <span className="text-[#1B4332]">{formatCurrency(revForecast.totalProjectedMonthRevenue)}</span>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Actual expenses to date</span>
+                      <span className="font-medium text-red-600">- {formatCurrency(actuals.expensesToDate)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Remaining projected expenses</span>
+                      <span className="font-medium text-red-600">- {formatCurrency(totalProjectedExpenses)}</span>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Projected profit</span>
+                      <span className={revForecast.projectedProfit < 0 ? 'text-red-600' : 'text-[#1B4332]'}>
+                        {formatCurrency(revForecast.projectedProfit)}
+                      </span>
+                    </div>
+
+                    {partners.length > 0 && (
+                      <>
+                        <Separator />
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Partner Split Preview</p>
+                        {partners.map(p => (
+                          <div key={p.id} className="flex justify-between text-sm">
+                            <span className="text-gray-600">{p.name} ({p.split_percentage}%)</span>
+                            <span className={revForecast.projectedProfit * (p.split_percentage / 100) < 0 ? 'text-red-600' : ''}>
+                              {formatCurrency(revForecast.projectedProfit * (p.split_percentage / 100))}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Projected Expenses */}
           <Card>
