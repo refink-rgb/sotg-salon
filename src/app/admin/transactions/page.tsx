@@ -14,7 +14,7 @@ import {
   subWeeks,
   subMonths,
 } from 'date-fns'
-import { Trash2, Pencil, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react'
+import { Trash2, Pencil, ChevronUp, ChevronDown, ArrowUpDown, Plus, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -78,6 +78,88 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<'date' | 'amount'>('date')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+
+  // New Transaction dialog
+  const [newTxnOpen, setNewTxnOpen] = useState(false)
+  const [newTxnSaving, setNewTxnSaving] = useState(false)
+  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([])
+  const [newTxn, setNewTxn] = useState({
+    date: formatDateInput(new Date()),
+    type: 'sale' as 'sale' | 'expense' | 'salary' | 'commission' | 'withdrawal',
+    amount: '',
+    category: '',
+    employee_id: '',
+    payment_method: '',
+    description: '',
+  })
+
+  // Fetch employees on mount
+  useEffect(() => {
+    async function loadEmployees() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('employees')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name')
+      setEmployees(data || [])
+    }
+    loadEmployees()
+  }, [])
+
+  async function handleNewTransaction(e: React.FormEvent) {
+    e.preventDefault()
+    const amt = Number(newTxn.amount) || 0
+    if (amt <= 0) {
+      toast.error('Please enter an amount')
+      return
+    }
+
+    setNewTxnSaving(true)
+    try {
+      const supabase = createClient()
+      const row: Record<string, unknown> = {
+        date: newTxn.date,
+        type: newTxn.type,
+        amount: amt,
+        description: newTxn.description.trim() || null,
+      }
+
+      if (newTxn.type === 'expense' && newTxn.category) {
+        row.category = newTxn.category
+      }
+      if (newTxn.type === 'withdrawal') {
+        row.category = 'owner_draw'
+      }
+      if ((newTxn.type === 'salary' || newTxn.type === 'commission') && newTxn.employee_id) {
+        row.employee_id = newTxn.employee_id
+      }
+      if (newTxn.type === 'sale' && newTxn.payment_method) {
+        row.payment_method = newTxn.payment_method
+      }
+
+      const { error } = await supabase.from('transactions').insert(row)
+      if (error) throw error
+
+      toast.success('Transaction created')
+      setNewTxnOpen(false)
+      setNewTxn({
+        date: formatDateInput(new Date()),
+        type: 'sale',
+        amount: '',
+        category: '',
+        employee_id: '',
+        payment_method: '',
+        description: '',
+      })
+      await fetchTransactions()
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to create transaction')
+    } finally {
+      setNewTxnSaving(false)
+    }
+  }
 
   function applyPreset(preset: string) {
     const today = new Date()
@@ -314,7 +396,16 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Transaction Explorer</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Transaction Explorer</h1>
+        <Button
+          onClick={() => setNewTxnOpen(true)}
+          className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+        >
+          <Plus className="size-4 mr-1" />
+          New Transaction
+        </Button>
+      </div>
 
       {/* Filters */}
       <Card>
@@ -618,6 +709,128 @@ export default function TransactionsPage() {
               {editSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Transaction Dialog */}
+      <Dialog open={newTxnOpen} onOpenChange={setNewTxnOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Transaction</DialogTitle>
+            <DialogDescription>Create a new transaction record.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleNewTransaction} className="space-y-4 py-2">
+            <div>
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={newTxn.date}
+                onChange={e => setNewTxn(p => ({ ...p, date: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Type</Label>
+              <Select
+                value={newTxn.type}
+                onValueChange={v => setNewTxn(p => ({
+                  ...p,
+                  type: v as typeof newTxn.type,
+                  category: '',
+                  employee_id: '',
+                  payment_method: '',
+                }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sale">Sale</SelectItem>
+                  <SelectItem value="expense">Expense</SelectItem>
+                  <SelectItem value="salary">Salary</SelectItem>
+                  <SelectItem value="commission">Commission</SelectItem>
+                  <SelectItem value="withdrawal">Withdrawal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                value={newTxn.amount}
+                onChange={e => setNewTxn(p => ({ ...p, amount: e.target.value }))}
+                placeholder="0"
+                min="0"
+              />
+            </div>
+            {newTxn.type === 'expense' && (
+              <div>
+                <Label>Category</Label>
+                <Select value={newTxn.category} onValueChange={v => setNewTxn(p => ({ ...p, category: v ?? '' }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXPENSE_CATEGORIES.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {(newTxn.type === 'salary' || newTxn.type === 'commission') && (
+              <div>
+                <Label>Employee</Label>
+                <Select value={newTxn.employee_id} onValueChange={v => setNewTxn(p => ({ ...p, employee_id: v ?? '' }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map(emp => (
+                      <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {newTxn.type === 'sale' && (
+              <div>
+                <Label>Payment Method</Label>
+                <Select value={newTxn.payment_method} onValueChange={v => setNewTxn(p => ({ ...p, payment_method: v ?? '' }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(pm => (
+                      <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label>Description</Label>
+              <Input
+                value={newTxn.description}
+                onChange={e => setNewTxn(p => ({ ...p, description: e.target.value }))}
+                placeholder="Optional description..."
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setNewTxnOpen(false)}>Cancel</Button>
+              <Button
+                type="submit"
+                disabled={newTxnSaving}
+                className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+              >
+                {newTxnSaving ? (
+                  <Loader2 className="size-4 animate-spin mr-1" />
+                ) : (
+                  <Plus className="size-4 mr-1" />
+                )}
+                Create Transaction
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

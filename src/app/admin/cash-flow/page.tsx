@@ -2,9 +2,13 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { format, eachDayOfInterval, startOfMonth, endOfMonth, getDaysInMonth, isToday } from 'date-fns'
+import { CreditCard, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { MONTHS } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { toast } from 'sonner'
@@ -26,35 +30,92 @@ export default function CashFlowPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
-      const supabase = createClient()
-      const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`
-      const daysInMonth = getDaysInMonth(new Date(selectedYear, selectedMonth))
-      const monthStart = `${monthStr}-01`
-      const monthEnd = `${monthStr}-${String(daysInMonth).padStart(2, '0')}`
+  // Withdrawal form
+  const [partners, setPartners] = useState<{ id: string; name: string }[]>([])
+  const [wdPartner, setWdPartner] = useState('')
+  const [wdAmount, setWdAmount] = useState('')
+  const [wdDate, setWdDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [wdNote, setWdNote] = useState('')
+  const [submittingWd, setSubmittingWd] = useState(false)
 
-      try {
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('*')
-          .gte('date', monthStart)
-          .lte('date', monthEnd)
-          .order('date')
+  const fetchData = async () => {
+    setLoading(true)
+    const supabase = createClient()
+    const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`
+    const daysInMonth = getDaysInMonth(new Date(selectedYear, selectedMonth))
+    const monthStart = `${monthStr}-01`
+    const monthEnd = `${monthStr}-${String(daysInMonth).padStart(2, '0')}`
 
-        if (error) throw error
-        setTransactions(data ?? [])
-      } catch (error) {
-        console.error('Error:', error)
-        toast.error('Failed to load cash flow data')
-      } finally {
-        setLoading(false)
-      }
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .gte('date', monthStart)
+        .lte('date', monthEnd)
+        .order('date')
+
+      if (error) throw error
+      setTransactions(data ?? [])
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Failed to load cash flow data')
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchData()
   }, [selectedMonth, selectedYear])
+
+  // Fetch partners once on mount
+  useEffect(() => {
+    async function loadPartners() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('partners')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name')
+      setPartners(data || [])
+    }
+    loadPartners()
+  }, [])
+
+  async function handleWithdrawal(e: React.FormEvent) {
+    e.preventDefault()
+    const amt = Number(wdAmount) || 0
+    if (amt <= 0) {
+      toast.error('Please enter a withdrawal amount')
+      return
+    }
+
+    setSubmittingWd(true)
+    try {
+      const supabase = createClient()
+      const partnerName = partners.find(p => p.id === wdPartner)?.name || 'Owner'
+      const { error } = await supabase.from('transactions').insert({
+        date: wdDate,
+        type: 'withdrawal',
+        amount: amt,
+        category: 'owner_draw',
+        description: wdNote.trim() || `Owner withdrawal - ${partnerName}`,
+      })
+      if (error) throw error
+
+      toast.success('Withdrawal recorded')
+      setWdPartner('')
+      setWdAmount('')
+      setWdNote('')
+      setWdDate(format(new Date(), 'yyyy-MM-dd'))
+      await fetchData()
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to record withdrawal')
+    } finally {
+      setSubmittingWd(false)
+    }
+  }
 
   const dailyData = useMemo(() => {
     const monthDate = new Date(selectedYear, selectedMonth, 1)
@@ -132,6 +193,84 @@ export default function CashFlowPage() {
           </Select>
         </div>
       </div>
+
+      {/* Owner Withdrawal */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="size-5 text-[#40916C]" />
+            Owner Withdrawal
+          </CardTitle>
+          <p className="text-xs text-gray-500">Cash draw only — does not appear in P&L</p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleWithdrawal} className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label>Date</Label>
+                <Input
+                  type="date"
+                  value={wdDate}
+                  onChange={(e) => setWdDate(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              {partners.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Partner</Label>
+                  <Select
+                    value={wdPartner}
+                    onValueChange={(v) => setWdPartner(v ?? '')}
+                  >
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {partners.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label>Amount</Label>
+                <Input
+                  type="number"
+                  value={wdAmount}
+                  onChange={(e) => setWdAmount(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Note</Label>
+                <Input
+                  value={wdNote}
+                  onChange={(e) => setWdNote(e.target.value)}
+                  placeholder="Optional note..."
+                  className="h-9"
+                />
+              </div>
+            </div>
+            <Button
+              type="submit"
+              disabled={submittingWd}
+              className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+            >
+              {submittingWd ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}
+              Record Withdrawal
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
