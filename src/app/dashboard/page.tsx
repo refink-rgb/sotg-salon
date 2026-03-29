@@ -76,7 +76,8 @@ export default function DashboardQueuePage() {
   ])
   const [notes, setNotes] = useState('')
   const [completing, setCompleting] = useState(false)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadingBefore, setUploadingBefore] = useState(false)
+  const [uploadingAfter, setUploadingAfter] = useState(false)
 
   // Elapsed time ticker
   const [, setTick] = useState(0)
@@ -473,17 +474,22 @@ export default function DashboardQueuePage() {
     })
   }
 
-  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') {
     const file = e.target.files?.[0]
     if (!file || !selectedVisit) return
 
-    setUploadingPhoto(true)
+    const setUploading = type === 'before' ? setUploadingBefore : setUploadingAfter
+    setUploading(true)
     try {
       // Resize client-side
       const resized = await resizeImage(file, 800)
 
-      const ext = file.name.split('.').pop() || 'jpg'
-      const path = `${selectedVisit.id}/${Date.now()}.${ext}`
+      // Build filename: FirstName_LastName_Phone_before|after.jpg
+      const firstName = (selectedVisit.customer?.first_name || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_')
+      const lastName = (selectedVisit.customer?.last_name || '').replace(/[^a-zA-Z0-9]/g, '_')
+      const phone = (selectedVisit.customer?.phone || '').replace(/[^a-zA-Z0-9]/g, '')
+      const filename = `${firstName}_${lastName}_${phone}_${type}.jpg`
+      const path = `${selectedVisit.id}/${filename}`
 
       const { error: uploadError } = await supabase.storage
         .from('visit-photos')
@@ -495,23 +501,24 @@ export default function DashboardQueuePage() {
         .getPublicUrl(path)
       const publicUrl = urlData.publicUrl
 
+      const column = type === 'before' ? 'photo_before_url' : 'photo_after_url'
       const { error: updateError } = await supabase
         .from('visits')
-        .update({ photo_url: publicUrl })
+        .update({ [column]: publicUrl })
         .eq('id', selectedVisit.id)
       if (updateError) throw updateError
 
-      setSelectedVisit({ ...selectedVisit, photo_url: publicUrl })
+      setSelectedVisit({ ...selectedVisit, [column]: publicUrl })
       // Update the visit in the local list too
       setVisits((prev) =>
-        prev.map((v) => v.id === selectedVisit.id ? { ...v, photo_url: publicUrl } : v)
+        prev.map((v) => v.id === selectedVisit.id ? { ...v, [column]: publicUrl } : v)
       )
-      toast.success('Photo uploaded!')
+      toast.success(`${type === 'before' ? 'Before' : 'After'} photo uploaded!`)
     } catch (error) {
       console.error(error)
       toast.error('Failed to upload photo')
     } finally {
-      setUploadingPhoto(false)
+      setUploading(false)
       // Reset file input
       e.target.value = ''
     }
@@ -622,9 +629,9 @@ export default function DashboardQueuePage() {
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
-                          {visit.photo_url && (
+                          {(visit.photo_after_url || visit.photo_before_url) && (
                             <img
-                              src={visit.photo_url}
+                              src={visit.photo_after_url || visit.photo_before_url!}
                               alt=""
                               className="size-10 flex-shrink-0 rounded-md object-cover"
                             />
@@ -678,9 +685,9 @@ export default function DashboardQueuePage() {
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
-                          {visit.photo_url && (
+                          {(visit.photo_after_url || visit.photo_before_url) && (
                             <img
-                              src={visit.photo_url}
+                              src={visit.photo_after_url || visit.photo_before_url!}
                               alt=""
                               className="size-10 flex-shrink-0 rounded-md object-cover"
                             />
@@ -810,66 +817,134 @@ export default function DashboardQueuePage() {
 
               <Separator />
 
-              {/* Photo Upload */}
+              {/* Photo Documentation */}
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold">Photo</h3>
+                <h3 className="text-sm font-semibold">Photo Documentation</h3>
                 <input
                   type="file"
                   accept="image/*"
-                  id="photo-upload"
+                  id="photo-before-upload"
                   className="hidden"
-                  onChange={handlePhotoUpload}
-                  disabled={uploadingPhoto}
+                  onChange={(e) => handlePhotoUpload(e, 'before')}
+                  disabled={uploadingBefore}
                 />
-                {selectedVisit.photo_url ? (
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="photo-after-upload"
+                  className="hidden"
+                  onChange={(e) => handlePhotoUpload(e, 'after')}
+                  disabled={uploadingAfter}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Before Photo */}
                   <div className="space-y-2">
-                    <div className="relative overflow-hidden rounded-lg border">
-                      <img
-                        src={selectedVisit.photo_url}
-                        alt="Visit photo"
-                        className="h-48 w-full object-cover"
-                      />
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => document.getElementById('photo-upload')?.click()}
-                      disabled={uploadingPhoto}
-                    >
-                      {uploadingPhoto ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="size-4" />
-                          Change Photo
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('photo-upload')?.click()}
-                    disabled={uploadingPhoto}
-                    className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-8 text-muted-foreground transition-colors hover:border-[#40916C] hover:text-[#40916C]"
-                  >
-                    {uploadingPhoto ? (
-                      <>
-                        <Loader2 className="size-8 animate-spin" />
-                        <span className="text-sm">Uploading...</span>
-                      </>
+                    <p className="text-xs font-medium text-muted-foreground">Before</p>
+                    {selectedVisit.photo_before_url ? (
+                      <div className="space-y-1.5">
+                        <div className="relative overflow-hidden rounded-lg border">
+                          <img
+                            src={selectedVisit.photo_before_url}
+                            alt="Before photo"
+                            className="h-32 w-full object-cover"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => document.getElementById('photo-before-upload')?.click()}
+                          disabled={uploadingBefore}
+                        >
+                          {uploadingBefore ? (
+                            <>
+                              <Loader2 className="size-3 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Camera className="size-3" />
+                              Change
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     ) : (
-                      <>
-                        <Camera className="size-8" />
-                        <span className="text-sm font-medium">Upload Photo</span>
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById('photo-before-upload')?.click()}
+                        disabled={uploadingBefore}
+                        className="flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-gray-300 py-6 text-muted-foreground transition-colors hover:border-[#40916C] hover:text-[#40916C]"
+                      >
+                        {uploadingBefore ? (
+                          <>
+                            <Loader2 className="size-6 animate-spin" />
+                            <span className="text-xs">Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="size-6" />
+                            <span className="text-xs font-medium">Upload</span>
+                          </>
+                        )}
+                      </button>
                     )}
-                  </button>
-                )}
+                  </div>
+
+                  {/* After Photo */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">After</p>
+                    {selectedVisit.photo_after_url ? (
+                      <div className="space-y-1.5">
+                        <div className="relative overflow-hidden rounded-lg border">
+                          <img
+                            src={selectedVisit.photo_after_url}
+                            alt="After photo"
+                            className="h-32 w-full object-cover"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => document.getElementById('photo-after-upload')?.click()}
+                          disabled={uploadingAfter}
+                        >
+                          {uploadingAfter ? (
+                            <>
+                              <Loader2 className="size-3 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Camera className="size-3" />
+                              Change
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById('photo-after-upload')?.click()}
+                        disabled={uploadingAfter}
+                        className="flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-gray-300 py-6 text-muted-foreground transition-colors hover:border-[#40916C] hover:text-[#40916C]"
+                      >
+                        {uploadingAfter ? (
+                          <>
+                            <Loader2 className="size-6 animate-spin" />
+                            <span className="text-xs">Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="size-6" />
+                            <span className="text-xs font-medium">Upload</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <Separator />
