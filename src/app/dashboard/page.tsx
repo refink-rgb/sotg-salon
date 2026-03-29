@@ -11,6 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -35,6 +42,7 @@ import {
   Trash2,
   CalendarIcon,
   Camera,
+  UserPlus,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -68,6 +76,17 @@ export default function DashboardQueuePage() {
   // Employees (for stylist assignment)
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [selectedStylistId, setSelectedStylistId] = useState<string>('')
+
+  // Walk-in dialog state
+  const [walkinOpen, setWalkinOpen] = useState(false)
+  const [walkinForm, setWalkinForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    city: 'Mabalacat City',
+  })
+  const [walkinServices, setWalkinServices] = useState<string[]>([])
+  const [walkinSubmitting, setWalkinSubmitting] = useState(false)
 
   // Form state for completing/editing a visit
   const [totalPrice, setTotalPrice] = useState('')
@@ -237,6 +256,91 @@ export default function DashboardQueuePage() {
     totalPriceNum > 0 &&
     totalPayments > 0 &&
     Math.abs(totalPayments - totalPriceNum) > 0.01
+
+  async function handleWalkinSubmit() {
+    const { firstName, lastName, phone, city } = walkinForm
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error('First and last name are required')
+      return
+    }
+
+    setWalkinSubmitting(true)
+    try {
+      let customerId: string
+      const visitId = crypto.randomUUID()
+      const trimmedPhone = phone.trim()
+
+      // Check if customer already exists by phone (stylist is authenticated, can SELECT)
+      if (trimmedPhone) {
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('phone', trimmedPhone)
+          .maybeSingle()
+
+        if (existing) {
+          // Reuse existing customer, update their info
+          customerId = existing.id
+          await supabase.from('customers').update({
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            city: city.trim() || null,
+            is_returning: true,
+          }).eq('id', customerId)
+        } else {
+          customerId = crypto.randomUUID()
+          const { error: custErr } = await supabase.from('customers').insert({
+            id: customerId,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            phone: trimmedPhone,
+            city: city.trim() || null,
+            is_returning: false,
+          })
+          if (custErr) throw custErr
+        }
+      } else {
+        customerId = crypto.randomUUID()
+        const { error: custErr } = await supabase.from('customers').insert({
+          id: customerId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: null,
+          city: city.trim() || null,
+          is_returning: false,
+        })
+        if (custErr) throw custErr
+      }
+
+      const { error: visitErr } = await supabase.from('visits').insert({
+        id: visitId,
+        customer_id: customerId,
+        date: selectedDate,
+        status: 'in_progress',
+      })
+      if (visitErr) throw visitErr
+
+      if (walkinServices.length > 0) {
+        const vs = walkinServices.map(sid => ({
+          visit_id: visitId,
+          service_id: sid,
+          price: null,
+        }))
+        await supabase.from('visit_services').insert(vs)
+      }
+
+      toast.success(`${firstName} ${lastName} added to queue`)
+      setWalkinOpen(false)
+      setWalkinForm({ firstName: '', lastName: '', phone: '', city: 'Mabalacat City' })
+      setWalkinServices([])
+      fetchVisits()
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to add customer')
+    } finally {
+      setWalkinSubmitting(false)
+    }
+  }
 
   async function handleMarkComplete() {
     if (!selectedVisit) return
@@ -578,25 +682,35 @@ export default function DashboardQueuePage() {
 
       {/* Date Picker */}
       <div className="mx-auto w-full max-w-4xl px-4 pt-4">
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="size-4 text-muted-foreground" />
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            max={todayStr}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#40916C] focus:ring-offset-1"
-          />
-          {selectedDate !== todayStr && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedDate(todayStr)}
-              className="text-xs"
-            >
-              Back to Today
-            </Button>
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="size-4 text-muted-foreground" />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              max={todayStr}
+              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#40916C] focus:ring-offset-1"
+            />
+            {selectedDate !== todayStr && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedDate(todayStr)}
+                className="text-xs"
+              >
+                Back to Today
+              </Button>
+            )}
+          </div>
+          <Button
+            onClick={() => setWalkinOpen(true)}
+            className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+            size="sm"
+          >
+            <UserPlus className="size-4" />
+            <span className="hidden sm:inline ml-1">New Walk-in</span>
+          </Button>
         </div>
       </div>
 
@@ -1102,6 +1216,105 @@ export default function DashboardQueuePage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Walk-in Dialog */}
+      <Dialog open={walkinOpen} onOpenChange={setWalkinOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="size-5 text-[#40916C]" />
+              New Walk-in Customer
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>First Name *</Label>
+                <Input
+                  value={walkinForm.firstName}
+                  onChange={e => setWalkinForm(p => ({ ...p, firstName: e.target.value }))}
+                  placeholder="Juan"
+                />
+              </div>
+              <div>
+                <Label>Last Name *</Label>
+                <Input
+                  value={walkinForm.lastName}
+                  onChange={e => setWalkinForm(p => ({ ...p, lastName: e.target.value }))}
+                  placeholder="Dela Cruz"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Phone</Label>
+                <Input
+                  type="tel"
+                  value={walkinForm.phone}
+                  onChange={e => {
+                    const val = e.target.value.replace(/[^0-9]/g, '')
+                    if (val.length <= 11) setWalkinForm(p => ({ ...p, phone: val }))
+                  }}
+                  placeholder="09171234567"
+                  maxLength={11}
+                />
+              </div>
+              <div>
+                <Label>City</Label>
+                <Input
+                  value={walkinForm.city}
+                  onChange={e => setWalkinForm(p => ({ ...p, city: e.target.value }))}
+                  placeholder="Mabalacat City"
+                />
+              </div>
+            </div>
+            {allServices.length > 0 && (
+              <div>
+                <Label className="mb-2 block">Services</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {allServices.map(service => (
+                    <label
+                      key={service.id}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-sm transition-colors ${
+                        walkinServices.includes(service.id)
+                          ? 'border-[#40916C] bg-[#40916C]/10'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Checkbox
+                        checked={walkinServices.includes(service.id)}
+                        onCheckedChange={() =>
+                          setWalkinServices(prev =>
+                            prev.includes(service.id)
+                              ? prev.filter(id => id !== service.id)
+                              : [...prev, service.id]
+                          )
+                        }
+                      />
+                      {service.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWalkinOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleWalkinSubmit}
+              disabled={walkinSubmitting}
+              className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+            >
+              {walkinSubmitting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <UserPlus className="size-4" />
+              )}
+              Add to Queue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { format } from 'date-fns'
+import { format, differenceInMinutes } from 'date-fns'
 import { Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -265,6 +265,7 @@ export default function CustomersPage() {
                                       <TableHead>Date</TableHead>
                                       <TableHead>Services</TableHead>
                                       <TableHead className="text-right">Amount</TableHead>
+                                      <TableHead>Service Time</TableHead>
                                       <TableHead>Status</TableHead>
                                     </TableRow>
                                   </TableHeader>
@@ -283,6 +284,15 @@ export default function CustomersPage() {
                                           {visit.total_amount != null
                                             ? formatCurrency(visit.total_amount)
                                             : '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          {visit.created_at && visit.completed_at ? (() => {
+                                            const mins = differenceInMinutes(new Date(visit.completed_at), new Date(visit.created_at))
+                                            if (mins < 60) return `${mins} min`
+                                            const h = Math.floor(mins / 60)
+                                            const m = mins % 60
+                                            return m > 0 ? `${h}h ${m}m` : `${h}h`
+                                          })() : visit.status === 'in_progress' ? 'In progress' : '-'}
                                         </TableCell>
                                         <TableCell>
                                           <Badge variant={visit.status === 'completed' ? 'default' : 'secondary'}>
