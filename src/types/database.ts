@@ -35,6 +35,7 @@ export interface Visit {
   notes: string | null
   photo_url: string | null
   completed_at: string | null
+  stylist_employee_id: string | null
   completed_by: string | null
   created_at: string
   customer?: Customer
@@ -91,6 +92,7 @@ export interface Employee {
   daily_rate: number
   commission_per_head_rate: number
   commission_percentage: number
+  is_internal: boolean
   is_in_service_charge_pool: boolean
   is_active: boolean
   created_at: string

@@ -30,10 +30,19 @@ export function calculateCommission(
   amountPaid: number = 0,
   deductions: number = 0,
   bonusAmount: number = 100,
+  isInternal: boolean = true,
+  relevantSales?: number,
 ): CommissionResult {
   const baseSalary = employee.daily_rate * daysWorked
   const perHeadCommission = employee.commission_per_head_rate * totalCustomers
-  const percentageCommission = employee.commission_percentage * (totalSales - totalServiceCharges)
+
+  // For internal employees: percentage commission based on (totalSales - totalServiceCharges - externalStylistSales)
+  // For external employees: percentage commission based on their own sales only
+  const percentageBase = relevantSales !== undefined
+    ? relevantSales
+    : (totalSales - totalServiceCharges)
+  const percentageCommission = employee.commission_percentage * percentageBase
+
   const bonusCommission = qualifyingBillCount * bonusAmount
   const serviceChargeShare = employee.is_in_service_charge_pool && serviceChargePoolSize > 0
     ? totalServiceCharges / serviceChargePoolSize

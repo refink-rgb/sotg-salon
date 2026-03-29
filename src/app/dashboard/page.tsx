@@ -39,7 +39,7 @@ import {
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { PAYMENT_METHODS } from '@/lib/constants'
-import type { Visit, PaymentMethod, Service } from '@/types/database'
+import type { Visit, PaymentMethod, Service, Employee } from '@/types/database'
 
 interface PaymentEntry {
   method: PaymentMethod
@@ -65,6 +65,10 @@ export default function DashboardQueuePage() {
   const [allServices, setAllServices] = useState<Service[]>([])
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([])
 
+  // Employees (for stylist assignment)
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([])
+  const [selectedStylistId, setSelectedStylistId] = useState<string>('')
+
   // Form state for completing/editing a visit
   const [totalPrice, setTotalPrice] = useState('')
   const [payments, setPayments] = useState<PaymentEntry[]>([
@@ -82,7 +86,7 @@ export default function DashboardQueuePage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Fetch all active services on mount
+  // Fetch all active services and employees on mount
   useEffect(() => {
     async function fetchServices() {
       const { data } = await supabase
@@ -92,7 +96,16 @@ export default function DashboardQueuePage() {
         .order('display_order', { ascending: true })
       if (data) setAllServices(data)
     }
+    async function fetchEmployees() {
+      const { data } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+      if (data) setAllEmployees(data)
+    }
     fetchServices()
+    fetchEmployees()
   }, [])
 
   const fetchVisits = useCallback(async () => {
@@ -159,6 +172,7 @@ export default function DashboardQueuePage() {
       visit.visit_services?.map((vs) => vs.service_id) || []
     )
 
+    setSelectedStylistId(visit.stylist_employee_id || '')
     setNotes(visit.notes || '')
     setSheetOpen(true)
   }
@@ -259,6 +273,7 @@ export default function DashboardQueuePage() {
           total_amount: totalPriceNum,
           notes: notes.trim() || null,
           completed_at: new Date().toISOString(),
+          stylist_employee_id: selectedStylistId || null,
         })
         .eq('id', selectedVisit.id)
       if (visitError) throw visitError
@@ -365,6 +380,7 @@ export default function DashboardQueuePage() {
         .update({
           total_amount: totalPriceNum,
           notes: notes.trim() || null,
+          stylist_employee_id: selectedStylistId || null,
         })
         .eq('id', selectedVisit.id)
       if (visitError) throw visitError
@@ -745,6 +761,26 @@ export default function DashboardQueuePage() {
                 {selectedVisit.customer?.is_returning && (
                   <Badge variant="secondary">Returning Customer</Badge>
                 )}
+              </div>
+
+              {/* Stylist Assignment */}
+              <div className="space-y-2">
+                <Label>Stylist</Label>
+                <Select
+                  value={selectedStylistId}
+                  onValueChange={(v) => setSelectedStylistId(v ?? '')}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select stylist..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allEmployees.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <Separator />

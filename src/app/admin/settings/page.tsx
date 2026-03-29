@@ -47,6 +47,7 @@ export default function SettingsPage() {
     commission_per_head_rate: '',
     commission_percentage: '',
     is_in_service_charge_pool: true,
+    is_internal: true,
   })
 
   // Recurring expense form
@@ -158,10 +159,11 @@ export default function SettingsPage() {
         commission_per_head_rate: String(emp.commission_per_head_rate),
         commission_percentage: String(emp.commission_percentage * 100),
         is_in_service_charge_pool: emp.is_in_service_charge_pool,
+        is_internal: emp.is_internal,
       })
     } else {
       setEditingEmployee(null)
-      setEmpForm({ name: '', daily_rate: '', commission_per_head_rate: '', commission_percentage: '', is_in_service_charge_pool: true })
+      setEmpForm({ name: '', daily_rate: '', commission_per_head_rate: '', commission_percentage: '', is_in_service_charge_pool: true, is_internal: true })
     }
     setEmpDialogOpen(true)
   }
@@ -177,6 +179,7 @@ export default function SettingsPage() {
       commission_per_head_rate: Number(empForm.commission_per_head_rate) || 0,
       commission_percentage: (Number(empForm.commission_percentage) || 0) / 100,
       is_in_service_charge_pool: empForm.is_in_service_charge_pool,
+      is_internal: empForm.is_internal,
     }
 
     try {
@@ -449,6 +452,7 @@ export default function SettingsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead className="text-right">Daily Rate</TableHead>
                     <TableHead className="text-right">Per Head</TableHead>
                     <TableHead className="text-right">Comm %</TableHead>
@@ -461,6 +465,11 @@ export default function SettingsPage() {
                   {employees.map(emp => (
                     <TableRow key={emp.id}>
                       <TableCell className="font-medium">{emp.name}</TableCell>
+                      <TableCell>
+                        <Badge variant={emp.is_internal ? 'default' : 'outline'}>
+                          {emp.is_internal ? 'Internal' : 'External'}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right">₱{emp.daily_rate.toLocaleString()}</TableCell>
                       <TableCell className="text-right">₱{emp.commission_per_head_rate.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{(emp.commission_percentage * 100).toFixed(1)}%</TableCell>
@@ -521,6 +530,13 @@ export default function SettingsPage() {
                     onCheckedChange={v => setEmpForm(p => ({ ...p, is_in_service_charge_pool: v }))}
                   />
                   <Label>In Service Charge Pool</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={empForm.is_internal}
+                    onCheckedChange={v => setEmpForm(p => ({ ...p, is_internal: v }))}
+                  />
+                  <Label>{empForm.is_internal ? 'Internal' : 'External'}</Label>
                 </div>
               </div>
               <DialogFooter>

@@ -58,6 +58,7 @@ export default function PayrollPage() {
     commission_per_head_rate: '',
     commission_percentage: '',
     is_in_service_charge_pool: true,
+    is_internal: true,
   })
   const [saving, setSaving] = useState(false)
 
@@ -70,6 +71,7 @@ export default function PayrollPage() {
     commission_per_head_rate: '',
     commission_percentage: '',
     is_in_service_charge_pool: true,
+    is_internal: true,
     is_active: true,
   })
 
@@ -141,6 +143,12 @@ export default function PayrollPage() {
     const activeEmployees = employees.filter(e => e.is_active)
     const serviceChargePoolSize = activeEmployees.filter(e => e.is_in_service_charge_pool).length
 
+    // Calculate external stylist sales (visits handled by external employees)
+    const externalEmployeeIds = new Set(employees.filter(e => !e.is_internal).map(e => e.id))
+    const externalSales = visits
+      .filter(v => v.stylist_employee_id && externalEmployeeIds.has(v.stylist_employee_id))
+      .reduce((s, v) => s + (v.total_amount ?? 0), 0)
+
     return activeEmployees.map(emp => {
       const daysWorked = attendance.filter(
         a => a.employee_id === emp.id && a.status === 'present'
@@ -149,6 +157,18 @@ export default function PayrollPage() {
       const advances = transactions
         .filter(t => (t.type === 'salary' || t.type === 'commission') && t.employee_id === emp.id)
         .reduce((s, t) => s + t.amount, 0)
+
+      // Compute the relevant sales base for percentage commission
+      let relevantSales: number
+      if (emp.is_internal) {
+        // Internal: total sales minus service charges minus external stylist sales
+        relevantSales = totalSales - totalServiceCharges - externalSales
+      } else {
+        // External: only their own visits (where stylist_employee_id = their id)
+        relevantSales = visits
+          .filter(v => v.stylist_employee_id === emp.id)
+          .reduce((s, v) => s + (v.total_amount ?? 0), 0)
+      }
 
       const result = calculateCommission(
         emp,
@@ -161,6 +181,8 @@ export default function PayrollPage() {
         advances,
         0,
         bonusAmount,
+        emp.is_internal,
+        relevantSales,
       )
 
       return { ...result, advances }
@@ -208,12 +230,13 @@ export default function PayrollPage() {
         commission_per_head_rate: Number(newEmp.commission_per_head_rate) || 0,
         commission_percentage: Number(newEmp.commission_percentage) / 100 || 0,
         is_in_service_charge_pool: newEmp.is_in_service_charge_pool,
+        is_internal: newEmp.is_internal,
         is_active: true,
       })
       if (error) throw error
       toast.success('Employee added')
       setDialogOpen(false)
-      setNewEmp({ name: '', daily_rate: '', commission_per_head_rate: '', commission_percentage: '', is_in_service_charge_pool: true })
+      setNewEmp({ name: '', daily_rate: '', commission_per_head_rate: '', commission_percentage: '', is_in_service_charge_pool: true, is_internal: true })
 
       // Refresh
       const { data } = await supabase.from('employees').select('*').order('name')
@@ -234,6 +257,7 @@ export default function PayrollPage() {
       commission_per_head_rate: String(emp.commission_per_head_rate),
       commission_percentage: String(emp.commission_percentage * 100),
       is_in_service_charge_pool: emp.is_in_service_charge_pool,
+      is_internal: emp.is_internal,
       is_active: emp.is_active,
     })
     setEditDialogOpen(true)
@@ -255,6 +279,7 @@ export default function PayrollPage() {
           commission_per_head_rate: Number(editEmp.commission_per_head_rate) || 0,
           commission_percentage: Number(editEmp.commission_percentage) / 100 || 0,
           is_in_service_charge_pool: editEmp.is_in_service_charge_pool,
+          is_internal: editEmp.is_internal,
           is_active: editEmp.is_active,
         })
         .eq('id', editEmp.id)
@@ -431,6 +456,14 @@ export default function PayrollPage() {
                   />
                   <Label htmlFor="emp-sc">In Service Charge Pool</Label>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={newEmp.is_internal}
+                    onCheckedChange={v => setNewEmp(p => ({ ...p, is_internal: v }))}
+                    id="emp-internal"
+                  />
+                  <Label htmlFor="emp-internal">{newEmp.is_internal ? 'Internal' : 'External'}</Label>
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleAddEmployee} disabled={saving}>
@@ -445,6 +478,7 @@ export default function PayrollPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead className="text-right">Daily Rate</TableHead>
                 <TableHead className="text-right">Monthly Est</TableHead>
                 <TableHead className="text-right">Commission %</TableHead>
@@ -458,6 +492,11 @@ export default function PayrollPage() {
               {employees.map(emp => (
                 <TableRow key={emp.id}>
                   <TableCell className="font-medium">{emp.name}</TableCell>
+                  <TableCell>
+                    <Badge variant={emp.is_internal ? 'default' : 'outline'}>
+                      {emp.is_internal ? 'Internal' : 'External'}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-right">{formatCurrency(emp.daily_rate)}</TableCell>
                   <TableCell className="text-right">{formatCurrency(emp.daily_rate * 26)}</TableCell>
                   <TableCell className="text-right">{(emp.commission_percentage * 100).toFixed(1)}%</TableCell>
@@ -477,7 +516,7 @@ export default function PayrollPage() {
               ))}
               {employees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-gray-500 py-8">No employees found</TableCell>
+                  <TableCell colSpan={9} className="text-center text-gray-500 py-8">No employees found</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -632,6 +671,14 @@ export default function PayrollPage() {
                 id="edit-sc"
               />
               <Label htmlFor="edit-sc">In Service Charge Pool</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={editEmp.is_internal}
+                onCheckedChange={v => setEditEmp(p => ({ ...p, is_internal: v }))}
+                id="edit-internal"
+              />
+              <Label htmlFor="edit-internal">{editEmp.is_internal ? 'Internal' : 'External'}</Label>
             </div>
             <div className="flex items-center gap-2">
               <Switch

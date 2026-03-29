@@ -5,13 +5,14 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Scissors, LogOut, ClipboardList, Receipt, Users, Settings } from 'lucide-react'
+import { Scissors, LogOut, ClipboardList, Receipt, Users, Settings, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 const navLinks = [
   { href: '/dashboard', label: 'Queue', icon: ClipboardList },
   { href: '/dashboard/expenses', label: 'Expenses', icon: Receipt },
+  { href: '/dashboard/summary', label: 'Summary', icon: BarChart3 },
   { href: '/dashboard/attendance', label: 'Attendance', icon: Users },
 ]
 
