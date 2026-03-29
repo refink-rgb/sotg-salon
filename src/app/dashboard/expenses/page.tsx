@@ -55,6 +55,9 @@ export default function ExpensesPage() {
   const [payoutSC, setPayoutSC] = useState('')
   const [payoutCommission, setPayoutCommission] = useState('')
   const [submittingPayout, setSubmittingPayout] = useState(false)
+  const [quickCategory, setQuickCategory] = useState<string | null>(null)
+  const [quickAmount, setQuickAmount] = useState('')
+  const [submittingQuick, setSubmittingQuick] = useState(false)
 
   // Payment summary
   const [paymentSummary, setPaymentSummary] = useState<
@@ -209,6 +212,31 @@ export default function ExpensesPage() {
     }
   }
 
+  async function handleQuickExpense() {
+    if (!quickCategory || !quickAmount || Number(quickAmount) <= 0) return
+    setSubmittingQuick(true)
+    try {
+      const labels: Record<string, string> = { food: 'Food', meds: 'Meds/Supplies', ads: 'Ads/Marketing' }
+      const { error } = await supabase.from('transactions').insert({
+        date: today,
+        type: 'expense',
+        amount: Number(quickAmount),
+        category: quickCategory,
+        description: labels[quickCategory] || quickCategory,
+      })
+      if (error) throw error
+      toast.success(`${labels[quickCategory]} ₱${Number(quickAmount).toLocaleString()} added`)
+      setQuickCategory(null)
+      setQuickAmount('')
+      fetchData()
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to add expense')
+    } finally {
+      setSubmittingQuick(false)
+    }
+  }
+
   function formatPHP(amount: number) {
     return `\u20B1${amount.toLocaleString()}`
   }
@@ -267,6 +295,56 @@ export default function ExpensesPage() {
               {formatPHP(expectedCash)}
             </span>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Add */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Quick Add Expense</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2 mb-3">
+            {[
+              { key: 'food', label: '🍔 Food' },
+              { key: 'meds', label: '💊 Meds' },
+              { key: 'ads', label: '📢 Ads' },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => setQuickCategory(quickCategory === item.key ? null : item.key)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  quickCategory === item.key
+                    ? 'bg-[#1B4332] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          {quickCategory && (
+            <div className="flex gap-2 items-center">
+              <span className="text-gray-400 text-sm">₱</span>
+              <Input
+                type="number"
+                value={quickAmount}
+                onChange={(e) => setQuickAmount(e.target.value)}
+                placeholder="Amount"
+                className="flex-1"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleQuickExpense() }}
+              />
+              <Button
+                onClick={handleQuickExpense}
+                disabled={submittingQuick || !quickAmount}
+                size="sm"
+                className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+              >
+                {submittingQuick ? <Loader2 className="size-4 animate-spin" /> : '✓'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

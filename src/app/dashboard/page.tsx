@@ -159,7 +159,9 @@ export default function DashboardQueuePage() {
     return () => clearInterval(interval)
   }, [fetchVisits])
 
-  const inProgress = visits.filter((v) => v.status === 'in_progress')
+  const inProgress = visits
+    .filter((v) => v.status === 'in_progress')
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   const completed = visits.filter((v) => v.status === 'completed')
 
   const totalSales = completed.reduce((sum, v) => sum + (v.total_amount || 0), 0)
@@ -443,6 +445,14 @@ export default function DashboardQueuePage() {
       setSheetOpen(false)
       setSelectedVisit(null)
       fetchVisits()
+
+      // Auto-open the next in-progress visit after a short delay
+      setTimeout(() => {
+        const remaining = inProgress.filter((v) => v.id !== selectedVisit.id)
+        if (remaining.length > 0) {
+          openVisitDetail(remaining[0], 'new')
+        }
+      }, 600)
     } catch (error) {
       console.error(error)
       toast.error('Failed to complete visit')
@@ -773,6 +783,16 @@ export default function DashboardQueuePage() {
                             <Timer className="size-3" />
                             <span>In salon: {formatElapsed(visit.created_at)}</span>
                           </div>
+                          {(() => {
+                            const mins = Math.floor((Date.now() - new Date(visit.created_at).getTime()) / 60000)
+                            const variant = mins < 30 ? 'default' : mins < 60 ? 'secondary' : 'destructive'
+                            const label = mins < 30 ? 'On time' : mins < 60 ? 'Long wait' : 'Over 1hr'
+                            return (
+                              <Badge variant={variant} className={mins < 30 ? 'bg-green-100 text-green-700 hover:bg-green-100' : mins < 60 ? 'bg-amber-100 text-amber-700 hover:bg-amber-100' : ''}>
+                                {label}
+                              </Badge>
+                            )
+                          })()}
                         </div>
                       </div>
                     </CardContent>

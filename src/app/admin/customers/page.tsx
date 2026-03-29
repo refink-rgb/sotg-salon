@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format, differenceInMinutes } from 'date-fns'
-import { Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { Search, ChevronDown, ChevronUp, Trash2, Copy } from 'lucide-react'
+import { copyTableToClipboard } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -146,7 +147,17 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Customer History</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Customer History</h1>
+        <Button variant="outline" size="sm" onClick={async () => {
+          const headers = ['Name', 'Phone', 'City', 'Type', 'Registration Date', 'Visits']
+          const rows = filtered.map(c => [`${c.first_name} ${c.last_name}`, c.phone || '', c.city || '', c.is_returning ? 'Returning' : 'First Visit', c.created_at ? format(new Date(c.created_at), 'yyyy-MM-dd') : '', String(c.visit_count)])
+          await copyTableToClipboard(headers, rows)
+          toast.success(`Copied ${rows.length} customers`)
+        }}>
+          <Copy className="size-3.5 mr-1" /> Copy
+        </Button>
+      </div>
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />

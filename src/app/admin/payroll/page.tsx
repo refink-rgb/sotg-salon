@@ -22,7 +22,8 @@ import {
 } from '@/components/ui/dialog'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, TableFooter } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { ChevronDown, ChevronUp, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, Pencil, Trash2, Copy } from 'lucide-react'
+import { copyTableToClipboard } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Employee, DailyAttendance, Transaction, Visit } from '@/types/database'
 import type { CommissionResult } from '@/lib/commission'
@@ -416,7 +417,17 @@ export default function PayrollPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Payroll</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Payroll</h1>
+        <Button variant="outline" size="sm" onClick={async () => {
+          const headers = ['Employee', 'Days', 'Base', 'Per Head', '% Comm', 'Bonus', 'SC Share', 'Total', 'Advances', 'Remaining']
+          const rows = payrollData.map(r => [r.employeeName, String(r.daysWorked), String(r.baseSalary), String(r.perHeadCommission), String(r.percentageCommission), String(r.bonusCommission), String(r.serviceChargeShare), String(r.totalPay), String(r.advances), String(r.remaining)])
+          await copyTableToClipboard(headers, rows)
+          toast.success(`Copied ${rows.length} employee payroll records`)
+        }}>
+          <Copy className="size-3.5 mr-1" /> Copy
+        </Button>
+      </div>
 
       {/* EMPLOYEE OVERVIEW */}
       <Card>

@@ -7,6 +7,9 @@ import { MONTHS, EXPENSE_CATEGORIES } from '@/lib/constants'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { Copy } from 'lucide-react'
+import { copyTableToClipboard } from '@/lib/utils'
 import type { Transaction, RecurringExpense, Partner } from '@/types/database'
 import { toast } from 'sonner'
 
@@ -338,7 +341,28 @@ export default function IncomeStatementPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Income Statement</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900">Income Statement</h1>
+          <Button variant="outline" size="sm" onClick={async () => {
+            const shortMonths = MONTHS.map(m => m.substring(0, 3))
+            const headers = ['Category', ...shortMonths, 'YTD', 'Full Year']
+            const getRow = (label: string, getValue: (d: typeof monthlyData[0]) => number) => {
+              return [label, ...monthlyData.map(d => String(Math.round(getValue(d)))), String(Math.round(monthlyData.reduce((s, d) => s + getValue(d), 0))), '']
+            }
+            const rows = [
+              getRow('Sales', d => d.totalSales),
+              ...EXPENSE_CATEGORIES.map(c => getRow(c.label, d => (d.categoryBreakdown[c.value]?.actual || 0) + (d.categoryBreakdown[c.value]?.projected || 0))),
+              getRow('Salary Payouts', d => d.actualSalaryPayouts),
+              getRow('Commission Payouts', d => d.actualCommissionPayouts),
+              getRow('Total Expenses', d => d.totalExpenses),
+              getRow('Gross Profit', d => d.grossProfit),
+            ]
+            await copyTableToClipboard(headers, rows)
+            toast.success('Income statement copied')
+          }}>
+            <Copy className="size-3.5 mr-1" /> Copy
+          </Button>
+        </div>
 
         <div className="flex items-center gap-4">
           <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>

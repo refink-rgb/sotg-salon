@@ -39,7 +39,7 @@ const navLinks = [
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ]
 
-function SidebarContent({ pathname, onLogout }: { pathname: string; onLogout: () => void }) {
+function SidebarContent({ pathname, onLogout, onNavigate }: { pathname: string; onLogout: () => void; onNavigate?: () => void }) {
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-white/10">
@@ -56,6 +56,7 @@ function SidebarContent({ pathname, onLogout }: { pathname: string; onLogout: ()
             <Link
               key={link.href}
               href={link.href}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                 isActive
@@ -73,6 +74,7 @@ function SidebarContent({ pathname, onLogout }: { pathname: string; onLogout: ()
 
         <Link
           href="/dashboard"
+          onClick={onNavigate}
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors"
         >
           <ArrowLeft className="size-4 shrink-0" />
@@ -124,7 +126,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               className="w-60 p-0 bg-[#1B4332] text-white border-none"
             >
               <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <SidebarContent pathname={pathname} onLogout={handleLogout} />
+              <SidebarContent pathname={pathname} onLogout={handleLogout} onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
           <h1 className="text-lg font-bold">SOTG Admin</h1>

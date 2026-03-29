@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { format, eachDayOfInterval, startOfMonth, endOfMonth, getDaysInMonth, isToday } from 'date-fns'
-import { CreditCard, Loader2, Plus } from 'lucide-react'
+import { CreditCard, Loader2, Plus, Copy } from 'lucide-react'
+import { copyTableToClipboard } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { MONTHS } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -169,7 +170,17 @@ export default function CashFlowPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Cash Flow</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900">Cash Flow</h1>
+          <Button variant="outline" size="sm" onClick={async () => {
+            const headers = ['Date', 'Day', 'Cash In', 'Cash Out', 'Balance']
+            const rows = dailyData.map(d => [format(d.date, 'yyyy-MM-dd'), d.dayName, String(d.cashIn), String(d.cashOut), String(d.runningBalance)])
+            await copyTableToClipboard(headers, rows)
+            toast.success(`Copied ${rows.length} days`)
+          }}>
+            <Copy className="size-3.5 mr-1" /> Copy
+          </Button>
+        </div>
         <div className="flex items-center gap-2">
           <Select value={MONTHS[selectedMonth]} onValueChange={v => setSelectedMonth(MONTHS.indexOf(v as typeof MONTHS[number]))}>
             <SelectTrigger className="w-32">

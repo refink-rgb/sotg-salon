@@ -20,7 +20,10 @@ import {
   TrendingDown,
   Wallet,
   ShoppingBag,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '@/lib/constants'
 import type { Transaction } from '@/types/database'
 
@@ -39,10 +42,14 @@ export default function SummaryPage() {
   const [payoutTxns, setPayoutTxns] = useState<Transaction[]>([])
   const [paymentSummary, setPaymentSummary] = useState<Record<string, number>>({})
   const [customerCount, setCustomerCount] = useState(0)
+  const [inProgressCount, setInProgressCount] = useState(0)
+  const [attendanceCount, setAttendanceCount] = useState(0)
+  const [activeEmployeeCount, setActiveEmployeeCount] = useState(0)
+  const [actualCash, setActualCash] = useState('')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [txRes, payRes, visitCountRes] = await Promise.all([
+    const [txRes, payRes, visitCountRes, inProgressRes, attendanceRes, activeEmpRes] = await Promise.all([
       supabase
         .from('transactions')
         .select('*')
@@ -57,6 +64,9 @@ export default function SummaryPage() {
         .select('id', { count: 'exact', head: true })
         .eq('date', today)
         .eq('status', 'completed'),
+      supabase.from('visits').select('id', { count: 'exact', head: true }).eq('date', today).eq('status', 'in_progress'),
+      supabase.from('daily_attendance').select('id', { count: 'exact', head: true }).eq('date', today),
+      supabase.from('employees').select('id', { count: 'exact', head: true }).eq('is_active', true),
     ])
 
     const allTxns = (txRes.data || []) as Transaction[]
@@ -71,6 +81,9 @@ export default function SummaryPage() {
     setPaymentSummary(summary)
 
     setCustomerCount(visitCountRes.count ?? 0)
+    setInProgressCount(inProgressRes.count ?? 0)
+    setAttendanceCount(attendanceRes.count ?? 0)
+    setActiveEmployeeCount(activeEmpRes.count ?? 0)
     setLoading(false)
   }, [today])
 
@@ -251,6 +264,92 @@ export default function SummaryPage() {
               <span className={`font-bold ${totalSales - totalExpenses - totalPayouts >= 0 ? 'text-[#1B4332]' : 'text-red-600'}`}>
                 {formatPHP(totalSales - totalExpenses - totalPayouts)}
               </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* End of Day Checklist */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">End of Day Checklist</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {/* All customers completed */}
+            <div className="flex items-center gap-3">
+              {inProgressCount === 0 ? (
+                <CheckCircle2 className="size-5 text-green-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="size-5 text-amber-500 shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className="text-sm font-medium">All customers completed</p>
+                <p className="text-xs text-gray-500">
+                  {inProgressCount === 0
+                    ? `${customerCount} completed today`
+                    : `${inProgressCount} still in progress`}
+                </p>
+              </div>
+            </div>
+
+            {/* Expenses logged */}
+            <div className="flex items-center gap-3">
+              {expenseTxns.length > 0 ? (
+                <CheckCircle2 className="size-5 text-green-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="size-5 text-amber-500 shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className="text-sm font-medium">Expenses logged</p>
+                <p className="text-xs text-gray-500">
+                  {expenseTxns.length > 0
+                    ? `${expenseTxns.length} expense(s) recorded`
+                    : 'No expenses recorded today'}
+                </p>
+              </div>
+            </div>
+
+            {/* Attendance marked */}
+            <div className="flex items-center gap-3">
+              {attendanceCount >= activeEmployeeCount && activeEmployeeCount > 0 ? (
+                <CheckCircle2 className="size-5 text-green-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="size-5 text-amber-500 shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className="text-sm font-medium">Attendance marked</p>
+                <p className="text-xs text-gray-500">
+                  {attendanceCount} of {activeEmployeeCount} employees marked
+                </p>
+              </div>
+            </div>
+
+            {/* Cash count verification */}
+            <div className="flex items-center gap-3">
+              {actualCash && Math.abs(Number(actualCash) - cashBalance) < 1 ? (
+                <CheckCircle2 className="size-5 text-green-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="size-5 text-amber-500 shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className="text-sm font-medium">Cash count verified</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-gray-500">Expected: {formatPHP(cashBalance)}</span>
+                  <Input
+                    type="number"
+                    value={actualCash}
+                    onChange={(e) => setActualCash(e.target.value)}
+                    placeholder="Actual cash"
+                    className="h-7 w-32 text-sm"
+                  />
+                </div>
+                {actualCash && Math.abs(Number(actualCash) - cashBalance) >= 1 && (
+                  <p className="text-xs text-red-500 mt-1">
+                    Difference: {formatPHP(Number(actualCash) - cashBalance)}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>

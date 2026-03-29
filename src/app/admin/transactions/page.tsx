@@ -14,7 +14,8 @@ import {
   subWeeks,
   subMonths,
 } from 'date-fns'
-import { Trash2, Pencil, ChevronUp, ChevronDown, ArrowUpDown, Plus, Loader2 } from 'lucide-react'
+import { Trash2, Pencil, ChevronUp, ChevronDown, ArrowUpDown, Plus, Loader2, Copy } from 'lucide-react'
+import { copyTableToClipboard } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -397,7 +398,17 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Transaction Explorer</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Transaction Explorer</h1>
+          <Button variant="outline" size="sm" onClick={async () => {
+            const headers = ['Date', 'Type', 'Category', 'Description', 'Amount', 'Payment', 'Employee']
+            const rows = filtered.map(t => [t.date, t.type, t.category || '', t.description || '', String(t.amount), t.payment_method || '', (t as any).employee?.name || ''])
+            await copyTableToClipboard(headers, rows)
+            toast.success(`Copied ${rows.length} transactions`)
+          }}>
+            <Copy className="size-3.5 mr-1" /> Copy
+          </Button>
+        </div>
         <Button
           onClick={() => setNewTxnOpen(true)}
           className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
