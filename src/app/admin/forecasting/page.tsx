@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { format, getDaysInMonth, differenceInDays, startOfMonth } from 'date-fns'
+import { format, getDaysInMonth, differenceInDays, startOfMonth, subDays } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -70,11 +70,14 @@ export default function ForecastingPage() {
       const monthEnd = `${monthStr}-${String(totalDaysInMonth).padStart(2, '0')}`
 
       try {
-        const [txnRes, reRes, partnerRes, visitsRes] = await Promise.all([
+        const thirtyDaysAgo = format(subDays(now, 30), 'yyyy-MM-dd')
+
+        const [txnRes, reRes, partnerRes, visitsRes, last30Res] = await Promise.all([
           supabase.from('transactions').select('*').gte('date', monthStart).lte('date', monthEnd),
           supabase.from('recurring_expenses').select('*').eq('is_active', true),
           supabase.from('partners').select('*').eq('is_active', true),
           supabase.from('visits').select('*').gte('date', monthStart).lte('date', monthEnd).eq('status', 'completed'),
+          supabase.from('visits').select('id, total_amount').gte('date', thirtyDaysAgo).eq('status', 'completed'),
         ])
 
         if (txnRes.error) throw txnRes.error
@@ -87,11 +90,11 @@ export default function ForecastingPage() {
         setPartners(partnerRes.data ?? [])
         setCompletedVisits(visitsRes.data ?? [])
 
-        // Calculate avg order value from completed visits
-        const visits = visitsRes.data ?? []
-        const visitsWithAmount = visits.filter((v: Visit) => v.total_amount && v.total_amount > 0)
-        if (visitsWithAmount.length > 0) {
-          const avg = visitsWithAmount.reduce((s: number, v: Visit) => s + (v.total_amount || 0), 0) / visitsWithAmount.length
+        // Calculate avg order value from last 30 days of completed visits
+        const last30Visits = (last30Res.data ?? []) as { id: string; total_amount: number | null }[]
+        const visitsWithAmount = last30Visits.filter(v => v.total_amount && v.total_amount > 0)
+        if (visitsWithAmount.length > 0 && !avgOrderOverridden) {
+          const avg = visitsWithAmount.reduce((s, v) => s + (v.total_amount || 0), 0) / visitsWithAmount.length
           setAvgOrderValue(Math.round(avg))
         }
 
@@ -329,9 +332,18 @@ export default function ForecastingPage() {
 
                     <div>
                       <label className="text-sm text-gray-600 block mb-1">
-                        Average order value
-                        {!avgOrderOverridden && completedVisits.length > 0 && (
-                          <span className="text-xs text-gray-400 ml-1">(auto from {completedVisits.filter(v => v.total_amount && v.total_amount > 0).length} visits)</span>
+                        Avg order value
+                        {!avgOrderOverridden && (
+                          <span className="text-xs text-gray-400 ml-1">(last 30 days avg)</span>
+                        )}
+                        {avgOrderOverridden && (
+                          <button
+                            type="button"
+                            className="text-xs text-[#40916C] ml-2 hover:underline"
+                            onClick={() => setAvgOrderOverridden(false)}
+                          >
+                            Reset to auto
+                          </button>
                         )}
                       </label>
                       <div className="relative">
