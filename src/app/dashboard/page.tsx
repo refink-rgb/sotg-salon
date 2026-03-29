@@ -34,6 +34,7 @@ import {
   Plus,
   Trash2,
   CalendarIcon,
+  Camera,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -71,6 +72,7 @@ export default function DashboardQueuePage() {
   ])
   const [notes, setNotes] = useState('')
   const [completing, setCompleting] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   // Elapsed time ticker
   const [, setTick] = useState(0)
@@ -428,6 +430,77 @@ export default function DashboardQueuePage() {
     }
   }
 
+  async function resizeImage(file: File, maxWidth: number): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        let width = img.width
+        let height = img.height
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width
+          width = maxWidth
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('No canvas context')); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => { blob ? resolve(blob) : reject(new Error('Blob creation failed')) },
+          'image/jpeg',
+          0.85
+        )
+      }
+      img.onerror = () => reject(new Error('Image load failed'))
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !selectedVisit) return
+
+    setUploadingPhoto(true)
+    try {
+      // Resize client-side
+      const resized = await resizeImage(file, 800)
+
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `${selectedVisit.id}/${Date.now()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('visit-photos')
+        .upload(path, resized, { contentType: 'image/jpeg', upsert: true })
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage
+        .from('visit-photos')
+        .getPublicUrl(path)
+      const publicUrl = urlData.publicUrl
+
+      const { error: updateError } = await supabase
+        .from('visits')
+        .update({ photo_url: publicUrl })
+        .eq('id', selectedVisit.id)
+      if (updateError) throw updateError
+
+      setSelectedVisit({ ...selectedVisit, photo_url: publicUrl })
+      // Update the visit in the local list too
+      setVisits((prev) =>
+        prev.map((v) => v.id === selectedVisit.id ? { ...v, photo_url: publicUrl } : v)
+      )
+      toast.success('Photo uploaded!')
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to upload photo')
+    } finally {
+      setUploadingPhoto(false)
+      // Reset file input
+      e.target.value = ''
+    }
+  }
+
   function formatPHP(amount: number) {
     return `\u20B1${amount.toLocaleString()}`
   }
@@ -532,17 +605,26 @@ export default function DashboardQueuePage() {
                   >
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-semibold">
-                            {visit.customer?.first_name}{' '}
-                            {visit.customer?.last_name}
-                          </p>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {visit.visit_services?.map((vs) => (
-                              <Badge key={vs.id} variant="secondary">
-                                {vs.service?.name}
-                              </Badge>
-                            ))}
+                        <div className="flex items-start gap-3">
+                          {visit.photo_url && (
+                            <img
+                              src={visit.photo_url}
+                              alt=""
+                              className="size-10 flex-shrink-0 rounded-md object-cover"
+                            />
+                          )}
+                          <div>
+                            <p className="font-semibold">
+                              {visit.customer?.first_name}{' '}
+                              {visit.customer?.last_name}
+                            </p>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {visit.visit_services?.map((vs) => (
+                                <Badge key={vs.id} variant="secondary">
+                                  {vs.service?.name}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
                         </div>
                         <div className="space-y-1 text-right">
@@ -579,24 +661,33 @@ export default function DashboardQueuePage() {
                   >
                     <CardContent className="py-3">
                       <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-semibold">
-                            {visit.customer?.first_name}{' '}
-                            {visit.customer?.last_name}
-                          </p>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {visit.visit_services?.map((vs) => (
-                              <Badge key={vs.id} variant="outline">
-                                {vs.service?.name}
-                              </Badge>
-                            ))}
-                          </div>
-                          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-                            {visit.visit_payments?.map((vp) => (
-                              <span key={vp.id}>
-                                {PAYMENT_METHODS.find((m) => m.value === vp.method)?.label}: {formatPHP(vp.amount)}
-                              </span>
-                            ))}
+                        <div className="flex items-start gap-3">
+                          {visit.photo_url && (
+                            <img
+                              src={visit.photo_url}
+                              alt=""
+                              className="size-10 flex-shrink-0 rounded-md object-cover"
+                            />
+                          )}
+                          <div>
+                            <p className="font-semibold">
+                              {visit.customer?.first_name}{' '}
+                              {visit.customer?.last_name}
+                            </p>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {visit.visit_services?.map((vs) => (
+                                <Badge key={vs.id} variant="outline">
+                                  {vs.service?.name}
+                                </Badge>
+                              ))}
+                            </div>
+                            <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                              {visit.visit_payments?.map((vp) => (
+                                <span key={vp.id}>
+                                  {PAYMENT_METHODS.find((m) => m.value === vp.method)?.label}: {formatPHP(vp.amount)}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
                         <div className="space-y-1 text-right">
@@ -679,6 +770,70 @@ export default function DashboardQueuePage() {
                     </label>
                   ))}
                 </div>
+              </div>
+
+              <Separator />
+
+              {/* Photo Upload */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Photo</h3>
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="photo-upload"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                  disabled={uploadingPhoto}
+                />
+                {selectedVisit.photo_url ? (
+                  <div className="space-y-2">
+                    <div className="relative overflow-hidden rounded-lg border">
+                      <img
+                        src={selectedVisit.photo_url}
+                        alt="Visit photo"
+                        className="h-48 w-full object-cover"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => document.getElementById('photo-upload')?.click()}
+                      disabled={uploadingPhoto}
+                    >
+                      {uploadingPhoto ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="size-4" />
+                          Change Photo
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('photo-upload')?.click()}
+                    disabled={uploadingPhoto}
+                    className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-8 text-muted-foreground transition-colors hover:border-[#40916C] hover:text-[#40916C]"
+                  >
+                    {uploadingPhoto ? (
+                      <>
+                        <Loader2 className="size-8 animate-spin" />
+                        <span className="text-sm">Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="size-8" />
+                        <span className="text-sm font-medium">Upload Photo</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
 
               <Separator />

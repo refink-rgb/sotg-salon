@@ -3,11 +3,20 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
-import { Search, ChevronDown, ChevronUp } from 'lucide-react'
+import { Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import type { Customer, Visit, VisitService, Service } from '@/types/database'
 
@@ -30,48 +39,48 @@ export default function CustomersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [visitDetails, setVisitDetails] = useState<VisitDetail[]>([])
   const [loadingVisits, setLoadingVisits] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [customerToDelete, setCustomerToDelete] = useState<CustomerWithVisitCount | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const fetchCustomers = async () => {
+    setLoading(true)
+    const supabase = createClient()
+
+    try {
+      const { data: customerData, error: customerError } = await supabase
+        .from('customers')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (customerError) throw customerError
+
+      const { data: visitCounts, error: visitError } = await supabase
+        .from('visits')
+        .select('customer_id')
+
+      if (visitError) throw visitError
+
+      const countMap: Record<string, number> = {}
+      visitCounts?.forEach(v => {
+        countMap[v.customer_id] = (countMap[v.customer_id] || 0) + 1
+      })
+
+      const enriched: CustomerWithVisitCount[] = (customerData ?? []).map(c => ({
+        ...c,
+        visit_count: countMap[c.id] || 0,
+      }))
+
+      setCustomers(enriched)
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Failed to load customers')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchCustomers() {
-      setLoading(true)
-      const supabase = createClient()
-
-      try {
-        // Fetch all customers
-        const { data: customerData, error: customerError } = await supabase
-          .from('customers')
-          .select('*')
-          .order('created_at', { ascending: false })
-
-        if (customerError) throw customerError
-
-        // Fetch visit counts per customer
-        const { data: visitCounts, error: visitError } = await supabase
-          .from('visits')
-          .select('customer_id')
-
-        if (visitError) throw visitError
-
-        // Count visits per customer
-        const countMap: Record<string, number> = {}
-        visitCounts?.forEach(v => {
-          countMap[v.customer_id] = (countMap[v.customer_id] || 0) + 1
-        })
-
-        const enriched: CustomerWithVisitCount[] = (customerData ?? []).map(c => ({
-          ...c,
-          visit_count: countMap[c.id] || 0,
-        }))
-
-        setCustomers(enriched)
-      } catch (error) {
-        console.error('Error:', error)
-        toast.error('Failed to load customers')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchCustomers()
   }, [])
 
@@ -112,6 +121,29 @@ export default function CustomersPage() {
     }
   }
 
+  const handleDeleteCustomer = async () => {
+    if (!customerToDelete) return
+    setDeleting(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('customers').delete().eq('id', customerToDelete.id)
+      if (error) throw error
+      toast.success(`Deleted ${customerToDelete.first_name} ${customerToDelete.last_name}`)
+      setDeleteDialogOpen(false)
+      setCustomerToDelete(null)
+      if (expandedId === customerToDelete.id) {
+        setExpandedId(null)
+        setVisitDetails([])
+      }
+      await fetchCustomers()
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Failed to delete customer')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Customer History</h1>
@@ -143,6 +175,7 @@ export default function CustomersPage() {
                   <TableHead>Type</TableHead>
                   <TableHead>Registration Date</TableHead>
                   <TableHead className="text-right">Total Visits</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -176,11 +209,25 @@ export default function CustomersPage() {
                       <TableCell className="text-right font-medium">
                         {customer.visit_count}
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setCustomerToDelete(customer)
+                            setDeleteDialogOpen(true)
+                          }}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
 
                     {expandedId === customer.id && (
                       <TableRow key={`${customer.id}-detail`}>
-                        <TableCell colSpan={7} className="bg-gray-50 p-0">
+                        <TableCell colSpan={8} className="bg-gray-50 p-0">
                           <div className="p-4 space-y-4">
                             {/* Customer Info */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -259,6 +306,24 @@ export default function CustomersPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Customer</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {customerToDelete?.first_name} {customerToDelete?.last_name}? This will also delete all their visit records.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteCustomer} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

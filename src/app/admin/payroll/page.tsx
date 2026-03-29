@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, TableFooter } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { ChevronDown, ChevronUp, Plus, Pencil } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Employee, DailyAttendance, Transaction, Visit } from '@/types/database'
 import type { CommissionResult } from '@/lib/commission'
@@ -72,6 +72,10 @@ export default function PayrollPage() {
     is_in_service_charge_pool: true,
     is_active: true,
   })
+
+  // Delete employee state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deletingEmployee, setDeletingEmployee] = useState(false)
 
   // Settings
   const [scThreshold, setScThreshold] = useState(3000)
@@ -266,6 +270,28 @@ export default function PayrollPage() {
       toast.error('Failed to update employee')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteEmployee = async () => {
+    if (!editEmp.id) return
+    setDeletingEmployee(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('employees').delete().eq('id', editEmp.id)
+      if (error) throw error
+      toast.success(`Deleted ${editEmp.name}`)
+      setDeleteConfirmOpen(false)
+      setEditDialogOpen(false)
+
+      // Refresh
+      const { data } = await supabase.from('employees').select('*').order('name')
+      setEmployees(data ?? [])
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Failed to delete employee')
+    } finally {
+      setDeletingEmployee(false)
     }
   }
 
@@ -616,8 +642,31 @@ export default function PayrollPage() {
               <Label htmlFor="edit-active">Active</Label>
             </div>
           </div>
+          {/* Delete confirmation inline */}
+          {deleteConfirmOpen ? (
+            <div className="border border-red-200 bg-red-50 rounded-lg p-4 space-y-3">
+              <p className="text-sm text-red-800">
+                Delete {editEmp.name}? Their attendance and payroll records will also be deleted.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button size="sm" variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+                <Button size="sm" variant="destructive" onClick={handleDeleteEmployee} disabled={deletingEmployee}>
+                  {deletingEmployee ? 'Deleting...' : 'Confirm Delete'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+              onClick={() => setDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="size-3.5" />
+              Delete Employee
+            </button>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setEditDialogOpen(false); setDeleteConfirmOpen(false) }}>Cancel</Button>
             <Button onClick={handleEditEmployee} disabled={saving}>
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>

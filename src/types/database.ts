@@ -33,6 +33,7 @@ export interface Visit {
   status: VisitStatus
   total_amount: number | null
   notes: string | null
+  photo_url: string | null
   completed_at: string | null
   completed_by: string | null
   created_at: string

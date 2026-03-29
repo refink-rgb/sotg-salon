@@ -61,6 +61,12 @@ export default function CheckInPage() {
       return
     }
 
+    const cleanPhone = phone.trim().replace(/\s/g, '')
+    if (!cleanPhone.startsWith('09') || cleanPhone.length !== 11) {
+      toast.error('Phone number must start with 09 and be exactly 11 digits')
+      return
+    }
+
     if (selectedServices.length === 0) {
       toast.error('Please select at least one service')
       return
@@ -166,11 +172,17 @@ export default function CheckInPage() {
             id="phone"
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value.replace(/[^0-9]/g, '')
+              if (val.length <= 11) setPhone(val)
+            }}
             placeholder="09171234567"
             required
+            maxLength={11}
+            pattern="09[0-9]{9}"
             className="h-10"
           />
+          <p className="text-[11px] text-gray-400 mt-0.5">Must start with 09 (11 digits)</p>
         </div>
 
         {/* City */}
