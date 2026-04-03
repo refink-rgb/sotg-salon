@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format, differenceInMinutes } from 'date-fns'
 import { Search, ChevronDown, ChevronUp, Trash2, Copy } from 'lucide-react'
-import { copyTableToClipboard } from '@/lib/utils'
+import { copyTableToClipboard, formatPeso } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,9 +29,6 @@ interface VisitDetail extends Visit {
   visit_services: (VisitService & { service: Service })[]
 }
 
-function formatCurrency(amount: number): string {
-  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerWithVisitCount[]>([])
@@ -293,7 +290,7 @@ export default function CustomersPage() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                           {visit.total_amount != null
-                                            ? formatCurrency(visit.total_amount)
+                                            ? formatPeso(visit.total_amount)
                                             : '-'}
                                         </TableCell>
                                         <TableCell>

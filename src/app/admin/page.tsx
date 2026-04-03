@@ -15,10 +15,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-function formatCurrency(amount: number): string {
-  return `₱${Math.abs(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
+import { formatPeso, getToday } from '@/lib/utils'
 
 export default function AdminDashboard() {
   const supabase = createClient()
@@ -31,7 +28,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function fetchData() {
-      const today = format(new Date(), 'yyyy-MM-dd')
+      const today = getToday()
       const monthStart = format(new Date(), 'yyyy-MM-01')
 
       try {
@@ -111,7 +108,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
-              {loading ? '...' : formatCurrency(todaySales)}
+              {loading ? '...' : formatPeso(todaySales)}
             </div>
           </CardContent>
         </Card>
@@ -123,7 +120,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
-              {loading ? '...' : formatCurrency(monthSales)}
+              {loading ? '...' : formatPeso(monthSales)}
             </div>
           </CardContent>
         </Card>
@@ -135,7 +132,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
-              {loading ? '...' : formatCurrency(monthExpenses)}
+              {loading ? '...' : formatPeso(monthExpenses)}
             </div>
           </CardContent>
         </Card>

@@ -1,6 +1,9 @@
 -- Migration: Add columns that were created via dashboard but missing from schema
 -- Run this if recreating the database from scratch
 
+-- Back office flag on transactions (hidden from stylist daily summary)
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_back_office boolean DEFAULT false;
+
 -- Visit photos
 ALTER TABLE visits ADD COLUMN IF NOT EXISTS photo_before_url text;
 ALTER TABLE visits ADD COLUMN IF NOT EXISTS photo_after_url text;

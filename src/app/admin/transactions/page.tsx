@@ -15,7 +15,7 @@ import {
   subMonths,
 } from 'date-fns'
 import { Trash2, Pencil, ChevronUp, ChevronDown, ArrowUpDown, Plus, Loader2, Copy } from 'lucide-react'
-import { copyTableToClipboard } from '@/lib/utils'
+import { copyTableToClipboard, formatPeso } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -35,12 +35,6 @@ import {
 import { toast } from 'sonner'
 import type { Transaction } from '@/types/database'
 
-function formatCurrency(amount: number): string {
-  if (amount < 0) {
-    return `(₱${Math.abs(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
-  }
-  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 function formatDateInput(date: Date): string {
   return format(date, 'yyyy-MM-dd')
@@ -510,20 +504,20 @@ export default function TransactionsPage() {
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-gray-500">Total Sales</p>
-            <p className="text-lg font-bold text-green-700">{formatCurrency(summary.totalSales)}</p>
+            <p className="text-lg font-bold text-green-700">{formatPeso(summary.totalSales)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-gray-500">Total Expenses</p>
-            <p className="text-lg font-bold text-red-600">{formatCurrency(summary.totalExpenses)}</p>
+            <p className="text-lg font-bold text-red-600">{formatPeso(summary.totalExpenses)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-gray-500">Salary / Commission</p>
             <p className="text-lg font-bold text-orange-600">
-              {formatCurrency(summary.totalSalary + summary.totalCommission)}
+              {formatPeso(summary.totalSalary + summary.totalCommission)}
             </p>
           </CardContent>
         </Card>
@@ -531,7 +525,7 @@ export default function TransactionsPage() {
           <CardContent className="p-3">
             <p className="text-xs text-gray-500">Net</p>
             <p className={`text-lg font-bold ${summary.net >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-              {formatCurrency(summary.net)}
+              {formatPeso(summary.net)}
             </p>
           </CardContent>
         </Card>
@@ -540,7 +534,7 @@ export default function TransactionsPage() {
             <CardContent className="p-3">
               <p className="text-xs text-gray-500">Owner Draws</p>
               <p className="text-lg font-bold text-purple-600">
-                {formatCurrency(summary.totalWithdrawals)}
+                {formatPeso(summary.totalWithdrawals)}
               </p>
               <p className="text-[10px] text-gray-400">Cash only, not in P&L</p>
             </CardContent>
@@ -551,7 +545,7 @@ export default function TransactionsPage() {
             <CardContent className="p-3">
               <p className="text-xs text-gray-500">Meds / Non-Meds</p>
               <p className="text-sm font-medium">
-                {formatCurrency(summary.medsExpenses)} / {formatCurrency(summary.nonMedsExpenses)}
+                {formatPeso(summary.medsExpenses)} / {formatPeso(summary.nonMedsExpenses)}
               </p>
             </CardContent>
           </Card>
@@ -617,7 +611,7 @@ export default function TransactionsPage() {
                     </TableCell>
                     <TableCell>{categoryLabel(txn.category)}</TableCell>
                     <TableCell className="max-w-[200px] truncate">{txn.description || '-'}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(txn.amount)}</TableCell>
+                    <TableCell className="text-right font-medium">{formatPeso(txn.amount)}</TableCell>
                     <TableCell>{paymentMethodLabel(txn.payment_method)}</TableCell>
                     <TableCell>{txn.employee?.name || '-'}</TableCell>
                     <TableCell>

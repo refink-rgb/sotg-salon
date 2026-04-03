@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { format, eachDayOfInterval, startOfMonth, endOfMonth, getDaysInMonth, isToday } from 'date-fns'
 import { CreditCard, Loader2, Plus, Copy } from 'lucide-react'
-import { copyTableToClipboard } from '@/lib/utils'
+import { copyTableToClipboard, formatPeso, getToday } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { MONTHS } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,12 +15,6 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { toast } from 'sonner'
 import type { Transaction } from '@/types/database'
 
-function formatCurrency(amount: number): string {
-  if (amount < 0) {
-    return `(₱${Math.abs(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
-  }
-  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -35,7 +29,7 @@ export default function CashFlowPage() {
   const [partners, setPartners] = useState<{ id: string; name: string }[]>([])
   const [wdPartner, setWdPartner] = useState('')
   const [wdAmount, setWdAmount] = useState('')
-  const [wdDate, setWdDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [wdDate, setWdDate] = useState(getToday())
   const [wdNote, setWdNote] = useState('')
   const [submittingWd, setSubmittingWd] = useState(false)
   const [wdBackOffice, setWdBackOffice] = useState(false)
@@ -110,7 +104,7 @@ export default function CashFlowPage() {
       setWdPartner('')
       setWdAmount('')
       setWdNote('')
-      setWdDate(format(new Date(), 'yyyy-MM-dd'))
+      setWdDate(getToday())
       await fetchData()
     } catch (error) {
       console.error(error)
@@ -298,7 +292,7 @@ export default function CashFlowPage() {
             <CardTitle className="text-sm font-medium text-gray-500">Opening Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xl font-bold">{formatCurrency(summary.openingBalance)}</p>
+            <p className="text-xl font-bold">{formatPeso(summary.openingBalance)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -306,7 +300,7 @@ export default function CashFlowPage() {
             <CardTitle className="text-sm font-medium text-gray-500">Total Cash In</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xl font-bold text-green-700">{formatCurrency(summary.totalIn)}</p>
+            <p className="text-xl font-bold text-green-700">{formatPeso(summary.totalIn)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -314,7 +308,7 @@ export default function CashFlowPage() {
             <CardTitle className="text-sm font-medium text-gray-500">Total Cash Out</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xl font-bold text-red-600">{formatCurrency(summary.totalOut)}</p>
+            <p className="text-xl font-bold text-red-600">{formatPeso(summary.totalOut)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -323,7 +317,7 @@ export default function CashFlowPage() {
           </CardHeader>
           <CardContent>
             <p className={`text-xl font-bold ${summary.closingBalance < 0 ? 'text-red-600' : 'text-[#1B4332]'}`}>
-              {formatCurrency(summary.closingBalance)}
+              {formatPeso(summary.closingBalance)}
             </p>
           </CardContent>
         </Card>
@@ -357,13 +351,13 @@ export default function CashFlowPage() {
                     </TableCell>
                     <TableCell className="text-gray-500">{row.dayName}</TableCell>
                     <TableCell className={`text-right ${row.cashIn > 0 ? 'text-green-700' : ''}`}>
-                      {row.cashIn > 0 ? formatCurrency(row.cashIn) : '-'}
+                      {row.cashIn > 0 ? formatPeso(row.cashIn) : '-'}
                     </TableCell>
                     <TableCell className={`text-right ${row.cashOut > 0 ? 'text-red-600' : ''}`}>
-                      {row.cashOut > 0 ? formatCurrency(row.cashOut) : '-'}
+                      {row.cashOut > 0 ? formatPeso(row.cashOut) : '-'}
                     </TableCell>
                     <TableCell className={`text-right font-medium ${row.runningBalance < 0 ? 'text-red-600' : ''}`}>
-                      {formatCurrency(row.runningBalance)}
+                      {formatPeso(row.runningBalance)}
                     </TableCell>
                   </TableRow>
                 ))}

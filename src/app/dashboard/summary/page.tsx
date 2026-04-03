@@ -25,15 +25,12 @@ import {
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '@/lib/constants'
+import { formatPeso, getToday } from '@/lib/utils'
 import type { Transaction } from '@/types/database'
-
-function formatPHP(amount: number) {
-  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 0 })}`
-}
 
 export default function SummaryPage() {
   const supabase = createClient()
-  const today = format(new Date(), 'yyyy-MM-dd')
+  const today = getToday()
   const todayDisplay = format(new Date(), 'EEEE, MMMM d, yyyy')
 
   const [loading, setLoading] = useState(true)
@@ -127,7 +124,7 @@ export default function SummaryPage() {
           <CardContent className="p-4 text-center">
             <DollarSign className="size-5 text-[#40916C] mx-auto mb-1" />
             <p className="text-xs text-gray-500">Total Sales</p>
-            <p className="text-2xl font-bold text-[#1B4332]">{formatPHP(totalSales)}</p>
+            <p className="text-2xl font-bold text-[#1B4332]">{formatPeso(totalSales)}</p>
             <p className="text-xs text-gray-400">{customerCount} customers</p>
           </CardContent>
         </Card>
@@ -136,7 +133,7 @@ export default function SummaryPage() {
             <Wallet className="size-5 text-[#40916C] mx-auto mb-1" />
             <p className="text-xs text-gray-500">Cash Balance</p>
             <p className={`text-2xl font-bold ${cashBalance >= 0 ? 'text-[#1B4332]' : 'text-red-600'}`}>
-              {formatPHP(cashBalance)}
+              {formatPeso(cashBalance)}
             </p>
             <p className="text-xs text-gray-400">Cash in - Cash out</p>
           </CardContent>
@@ -156,7 +153,7 @@ export default function SummaryPage() {
             {PAYMENT_METHODS.map(pm => (
               <div key={pm.value} className="flex items-center justify-between rounded-lg border px-3 py-2">
                 <span className="text-sm text-gray-600">{pm.label}</span>
-                <span className="font-semibold text-[#1B4332]">{formatPHP(paymentSummary[pm.value] || 0)}</span>
+                <span className="font-semibold text-[#1B4332]">{formatPeso(paymentSummary[pm.value] || 0)}</span>
               </div>
             ))}
           </div>
@@ -190,7 +187,7 @@ export default function SummaryPage() {
                     return (
                       <TableRow key={cat}>
                         <TableCell>{label}</TableCell>
-                        <TableCell className="text-right font-medium text-red-600">{formatPHP(amt)}</TableCell>
+                        <TableCell className="text-right font-medium text-red-600">{formatPeso(amt)}</TableCell>
                       </TableRow>
                     )
                   })}
@@ -198,7 +195,7 @@ export default function SummaryPage() {
               <TableFooter>
                 <TableRow>
                   <TableCell className="font-bold">Total Expenses</TableCell>
-                  <TableCell className="text-right font-bold text-red-600">{formatPHP(totalExpenses)}</TableCell>
+                  <TableCell className="text-right font-bold text-red-600">{formatPeso(totalExpenses)}</TableCell>
                 </TableRow>
               </TableFooter>
             </Table>
@@ -228,14 +225,14 @@ export default function SummaryPage() {
                       {t.type === 'salary' && t.category === 'service_charge' ? 'Service Charge' : t.type}
                     </TableCell>
                     <TableCell className="text-gray-500">{t.description || '-'}</TableCell>
-                    <TableCell className="text-right font-medium text-orange-600">{formatPHP(t.amount)}</TableCell>
+                    <TableCell className="text-right font-medium text-orange-600">{formatPeso(t.amount)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <TableFooter>
                 <TableRow>
                   <TableCell colSpan={2} className="font-bold">Total Payouts</TableCell>
-                  <TableCell className="text-right font-bold text-orange-600">{formatPHP(totalPayouts)}</TableCell>
+                  <TableCell className="text-right font-bold text-orange-600">{formatPeso(totalPayouts)}</TableCell>
                 </TableRow>
               </TableFooter>
             </Table>
@@ -249,21 +246,21 @@ export default function SummaryPage() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Total Sales</span>
-              <span className="font-semibold text-[#1B4332]">{formatPHP(totalSales)}</span>
+              <span className="font-semibold text-[#1B4332]">{formatPeso(totalSales)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Total Expenses</span>
-              <span className="font-semibold text-red-600">({formatPHP(totalExpenses)})</span>
+              <span className="font-semibold text-red-600">({formatPeso(totalExpenses)})</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Salary/Commission</span>
-              <span className="font-semibold text-orange-600">({formatPHP(totalPayouts)})</span>
+              <span className="font-semibold text-orange-600">({formatPeso(totalPayouts)})</span>
             </div>
             <Separator />
             <div className="flex justify-between text-base">
               <span className="font-bold">Net for Today</span>
               <span className={`font-bold ${totalSales - totalExpenses - totalPayouts >= 0 ? 'text-[#1B4332]' : 'text-red-600'}`}>
-                {formatPHP(totalSales - totalExpenses - totalPayouts)}
+                {formatPeso(totalSales - totalExpenses - totalPayouts)}
               </span>
             </div>
           </div>
@@ -336,7 +333,7 @@ export default function SummaryPage() {
               <div className="flex-1">
                 <p className="text-sm font-medium">Cash count verified</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-gray-500">Expected: {formatPHP(cashBalance)}</span>
+                  <span className="text-xs text-gray-500">Expected: {formatPeso(cashBalance)}</span>
                   <Input
                     type="number"
                     value={actualCash}
@@ -347,7 +344,7 @@ export default function SummaryPage() {
                 </div>
                 {actualCash && Math.abs(Number(actualCash) - cashBalance) >= 1 && (
                   <p className="text-xs text-red-500 mt-1">
-                    Difference: {formatPHP(Number(actualCash) - cashBalance)}
+                    Difference: {formatPeso(Number(actualCash) - cashBalance)}
                   </p>
                 )}
               </div>

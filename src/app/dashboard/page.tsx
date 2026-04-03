@@ -47,6 +47,7 @@ import {
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { PAYMENT_METHODS } from '@/lib/constants'
+import { formatPeso, getToday } from '@/lib/utils'
 import type { Visit, PaymentMethod, Service, Employee } from '@/types/database'
 
 interface PaymentEntry {
@@ -64,10 +65,8 @@ export default function DashboardQueuePage() {
   const [editMode, setEditMode] = useState<'new' | 'edit'>('new')
 
   // Date selector state
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split('T')[0]
-  )
-  const todayStr = new Date().toISOString().split('T')[0]
+  const [selectedDate, setSelectedDate] = useState(getToday)
+  const todayStr = getToday()
 
   // All active services (for checkbox editing)
   const [allServices, setAllServices] = useState<Service[]>([])
@@ -364,7 +363,7 @@ export default function DashboardQueuePage() {
 
     if (paymentMismatch) {
       toast.error(
-        `Payment total (${formatPHP(totalPayments)}) does not match total price (${formatPHP(totalPriceNum)})`
+        `Payment total (${formatPeso(totalPayments)}) does not match total price (${formatPeso(totalPriceNum)})`
       )
       return
     }
@@ -437,7 +436,7 @@ export default function DashboardQueuePage() {
       // Note if total >= 3000 for service charge tracking
       if (totalPriceNum >= 3000) {
         console.log(
-          `Service charge eligible visit: ${selectedVisit.id} - ${formatPHP(totalPriceNum)}`
+          `Service charge eligible visit: ${selectedVisit.id} - ${formatPeso(totalPriceNum)}`
         )
       }
 
@@ -481,7 +480,7 @@ export default function DashboardQueuePage() {
 
     if (paymentMismatch) {
       toast.error(
-        `Payment total (${formatPHP(totalPayments)}) does not match total price (${formatPHP(totalPriceNum)})`
+        `Payment total (${formatPeso(totalPayments)}) does not match total price (${formatPeso(totalPriceNum)})`
       )
       return
     }
@@ -638,10 +637,6 @@ export default function DashboardQueuePage() {
     }
   }
 
-  function formatPHP(amount: number) {
-    return `\u20B1${amount.toLocaleString()}`
-  }
-
   function formatElapsed(createdAt: string) {
     const created = new Date(createdAt)
     const now = new Date()
@@ -673,7 +668,7 @@ export default function DashboardQueuePage() {
             <p className="text-xs font-medium uppercase tracking-wide text-white/70">
               Total Sales
             </p>
-            <p className="text-lg font-bold">{formatPHP(totalSales)}</p>
+            <p className="text-lg font-bold">{formatPeso(totalSales)}</p>
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-white/70">
@@ -841,7 +836,7 @@ export default function DashboardQueuePage() {
                             <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                               {visit.visit_payments?.map((vp) => (
                                 <span key={vp.id}>
-                                  {PAYMENT_METHODS.find((m) => m.value === vp.method)?.label}: {formatPHP(vp.amount)}
+                                  {PAYMENT_METHODS.find((m) => m.value === vp.method)?.label}: {formatPeso(vp.amount)}
                                 </span>
                               ))}
                             </div>
@@ -849,7 +844,7 @@ export default function DashboardQueuePage() {
                         </div>
                         <div className="space-y-1 text-right">
                           <p className="font-semibold text-[#1B4332]">
-                            {formatPHP(visit.total_amount || 0)}
+                            {formatPeso(visit.total_amount || 0)}
                           </p>
                           <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
                             <Clock className="size-3" />
@@ -1171,12 +1166,12 @@ export default function DashboardQueuePage() {
                         : 'font-semibold'
                     }
                   >
-                    {formatPHP(totalPayments)}
+                    {formatPeso(totalPayments)}
                   </span>
                 </div>
                 {paymentMismatch && (
                   <p className="text-xs text-red-500">
-                    Payment total does not match the total price ({formatPHP(totalPriceNum)})
+                    Payment total does not match the total price ({formatPeso(totalPriceNum)})
                   </p>
                 )}
               </div>

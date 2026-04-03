@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import Papa from 'papaparse'
 import { createClient } from '@/lib/supabase/client'
+import { getToday } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -56,7 +57,7 @@ function parseAmount(raw: string): number {
 
 /** Parse M/D/YYYY -> YYYY-MM-DD */
 function parseDate(raw: string): string {
-  if (!raw || !raw.trim()) return new Date().toISOString().split('T')[0]
+  if (!raw || !raw.trim()) return getToday()
   const parts = raw.trim().split('/')
   if (parts.length !== 3) return raw.trim()
   const [m, d, y] = parts

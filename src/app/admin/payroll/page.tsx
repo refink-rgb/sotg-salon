@@ -23,17 +23,11 @@ import {
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, TableFooter } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { ChevronDown, ChevronUp, Plus, Pencil, Trash2, Copy } from 'lucide-react'
-import { copyTableToClipboard } from '@/lib/utils'
+import { copyTableToClipboard, formatPeso, getToday } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Employee, DailyAttendance, Transaction, Visit } from '@/types/database'
 import type { CommissionResult } from '@/lib/commission'
 
-function formatCurrency(amount: number): string {
-  if (amount < 0) {
-    return `(₱${Math.abs(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
-  }
-  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 interface PayrollRow extends CommissionResult {
   advances: number
@@ -329,7 +323,7 @@ export default function PayrollPage() {
     try {
       const supabase = createClient()
       const { error } = await supabase.from('transactions').insert({
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: getToday(),
         type: 'salary' as const,
         amount: empResult.remaining,
         description: `Payroll payout for ${MONTHS[selectedMonth]} ${selectedYear}`,
@@ -337,7 +331,7 @@ export default function PayrollPage() {
         payment_method: 'cash',
       })
       if (error) throw error
-      toast.success(`Paid ${formatCurrency(empResult.remaining)} to ${empResult.employeeName}`)
+      toast.success(`Paid ${formatPeso(empResult.remaining)} to ${empResult.employeeName}`)
 
       // Refresh transactions
       const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`
@@ -508,10 +502,10 @@ export default function PayrollPage() {
                       {emp.is_internal ? 'Internal' : 'External'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">{formatCurrency(emp.daily_rate)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(emp.daily_rate * 26)}</TableCell>
+                  <TableCell className="text-right">{formatPeso(emp.daily_rate)}</TableCell>
+                  <TableCell className="text-right">{formatPeso(emp.daily_rate * 26)}</TableCell>
                   <TableCell className="text-right">{(emp.commission_percentage * 100).toFixed(1)}%</TableCell>
-                  <TableCell className="text-right">{formatCurrency(emp.commission_per_head_rate)}</TableCell>
+                  <TableCell className="text-right">{formatPeso(emp.commission_per_head_rate)}</TableCell>
                   <TableCell>{emp.is_in_service_charge_pool ? 'Yes' : 'No'}</TableCell>
                   <TableCell>
                     <Badge variant={emp.is_active ? 'default' : 'secondary'}>
@@ -596,15 +590,15 @@ export default function PayrollPage() {
                         </button>
                       </TableCell>
                       <TableCell className="text-right">{row.daysWorked}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(row.baseSalary)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(row.perHeadCommission)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(row.percentageCommission)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(row.bonusCommission)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(row.serviceChargeShare)}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatCurrency(row.totalPay)}</TableCell>
-                      <TableCell className="text-right text-orange-600">{formatCurrency(row.advances)}</TableCell>
+                      <TableCell className="text-right">{formatPeso(row.baseSalary)}</TableCell>
+                      <TableCell className="text-right">{formatPeso(row.perHeadCommission)}</TableCell>
+                      <TableCell className="text-right">{formatPeso(row.percentageCommission)}</TableCell>
+                      <TableCell className="text-right">{formatPeso(row.bonusCommission)}</TableCell>
+                      <TableCell className="text-right">{formatPeso(row.serviceChargeShare)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatPeso(row.totalPay)}</TableCell>
+                      <TableCell className="text-right text-orange-600">{formatPeso(row.advances)}</TableCell>
                       <TableCell className={`text-right font-semibold ${row.remaining < 0 ? 'text-red-600' : 'text-[#1B4332]'}`}>
-                        {formatCurrency(row.remaining)}
+                        {formatPeso(row.remaining)}
                       </TableCell>
                       <TableCell>
                         <Button
@@ -629,14 +623,14 @@ export default function PayrollPage() {
                     <TableRow>
                       <TableCell className="font-bold">Totals</TableCell>
                       <TableCell className="text-right font-bold">{payrollTotals.daysWorked}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(payrollTotals.baseSalary)}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(payrollTotals.perHeadCommission)}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(payrollTotals.percentageCommission)}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(payrollTotals.bonusCommission)}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(payrollTotals.serviceChargeShare)}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(payrollTotals.totalPay)}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(payrollTotals.advances)}</TableCell>
-                      <TableCell className="text-right font-bold">{formatCurrency(payrollTotals.remaining)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatPeso(payrollTotals.baseSalary)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatPeso(payrollTotals.perHeadCommission)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatPeso(payrollTotals.percentageCommission)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatPeso(payrollTotals.bonusCommission)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatPeso(payrollTotals.serviceChargeShare)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatPeso(payrollTotals.totalPay)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatPeso(payrollTotals.advances)}</TableCell>
+                      <TableCell className="text-right font-bold">{formatPeso(payrollTotals.remaining)}</TableCell>
                       <TableCell />
                     </TableRow>
                   </TableFooter>

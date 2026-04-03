@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getToday } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -77,7 +78,7 @@ export default function CheckInPage() {
     try {
       const customerId = crypto.randomUUID()
       const visitId = crypto.randomUUID()
-      const today = new Date().toISOString().split('T')[0]
+      const today = getToday()
 
       // Insert new customer
       const { error: customerError } = await supabase

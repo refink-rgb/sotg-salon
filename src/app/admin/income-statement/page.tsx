@@ -9,16 +9,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Copy } from 'lucide-react'
-import { copyTableToClipboard } from '@/lib/utils'
+import { copyTableToClipboard, formatPeso } from '@/lib/utils'
 import type { Transaction, RecurringExpense, Partner } from '@/types/database'
 import { toast } from 'sonner'
 
-function formatCurrency(amount: number, projected = false): string {
-  const formatted = amount < 0
-    ? `(₱${Math.abs(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
-    : `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  return formatted
-}
 
 function formatPercent(value: number): string {
   if (!isFinite(value)) return '0.0%'
@@ -284,7 +278,7 @@ export default function IncomeStatementPage() {
     if (zone === 'past') {
       return (
         <span className={`${opts?.bold ? 'font-semibold' : ''} ${numClass(total)}`}>
-          {formatCurrency(total)}
+          {formatPeso(total)}
         </span>
       )
     }
@@ -292,16 +286,16 @@ export default function IncomeStatementPage() {
       if (projected === 0) {
         return (
           <span className={`${opts?.bold ? 'font-semibold' : ''} ${numClass(actual)}`}>
-            {formatCurrency(actual)}
+            {formatPeso(actual)}
           </span>
         )
       }
       return (
         <span className={opts?.bold ? 'font-semibold' : ''}>
-          <span className={numClass(actual)}>{formatCurrency(actual)}</span>
+          <span className={numClass(actual)}>{formatPeso(actual)}</span>
           {projected !== 0 && (
             <span className={`${projectedStyle} block text-xs`}>
-              + {formatCurrency(projected)}
+              + {formatPeso(projected)}
             </span>
           )}
         </span>
@@ -310,7 +304,7 @@ export default function IncomeStatementPage() {
     // future
     return (
       <span className={`${projectedStyle} ${opts?.bold ? 'font-semibold' : ''} ${numClass(total)}`}>
-        {formatCurrency(total)}
+        {formatPeso(total)}
       </span>
     )
   }
@@ -320,13 +314,13 @@ export default function IncomeStatementPage() {
     if (zone === 'future') {
       return (
         <span className={`${projectedStyle} ${opts?.bold ? 'font-semibold' : ''} ${numClass(value)}`}>
-          {formatCurrency(value)}
+          {formatPeso(value)}
         </span>
       )
     }
     return (
       <span className={`${opts?.bold ? 'font-semibold' : ''} ${numClass(value)}`}>
-        {formatCurrency(value)}
+        {formatPeso(value)}
       </span>
     )
   }
@@ -416,10 +410,10 @@ export default function IncomeStatementPage() {
                       </TableCell>
                     ))}
                     <TableCell className="text-right font-bold bg-gray-50">
-                      {formatCurrency(ytdActuals.sales)}
+                      {formatPeso(ytdActuals.sales)}
                     </TableCell>
                     <TableCell className="text-right font-bold bg-gray-100">
-                      {formatCurrency(fullYearProjected.sales)}
+                      {formatPeso(fullYearProjected.sales)}
                     </TableCell>
                   </TableRow>
 
@@ -445,10 +439,10 @@ export default function IncomeStatementPage() {
                         )
                       })}
                       <TableCell className="text-right bg-gray-50">
-                        {formatCurrency(ytdActuals.categoryTotals[cat.value] || 0)}
+                        {formatPeso(ytdActuals.categoryTotals[cat.value] || 0)}
                       </TableCell>
                       <TableCell className="text-right font-medium bg-gray-100">
-                        {formatCurrency(
+                        {formatPeso(
                           (fullYearProjected.categoryTotals[cat.value]?.actual ?? 0) +
                           (fullYearProjected.categoryTotals[cat.value]?.projected ?? 0)
                         )}
@@ -462,17 +456,17 @@ export default function IncomeStatementPage() {
                     {monthlyData.map((m, i) => (
                       <TableCell key={i} className={`text-right ${getMonthBg(m.zone)}`}>
                         {m.zone === 'future' ? (
-                          <span className={projectedStyle}>{formatCurrency(m.actualSalaryPayouts)}</span>
+                          <span className={projectedStyle}>{formatPeso(m.actualSalaryPayouts)}</span>
                         ) : (
-                          formatCurrency(m.actualSalaryPayouts)
+                          formatPeso(m.actualSalaryPayouts)
                         )}
                       </TableCell>
                     ))}
                     <TableCell className="text-right font-bold bg-gray-50">
-                      {formatCurrency(ytdActuals.salaryPayouts)}
+                      {formatPeso(ytdActuals.salaryPayouts)}
                     </TableCell>
                     <TableCell className="text-right font-bold bg-gray-100">
-                      {formatCurrency(fullYearProjected.salaryPayouts)}
+                      {formatPeso(fullYearProjected.salaryPayouts)}
                     </TableCell>
                   </TableRow>
 
@@ -482,17 +476,17 @@ export default function IncomeStatementPage() {
                     {monthlyData.map((m, i) => (
                       <TableCell key={i} className={`text-right ${getMonthBg(m.zone)}`}>
                         {m.zone === 'future' ? (
-                          <span className={projectedStyle}>{formatCurrency(m.actualCommissionPayouts)}</span>
+                          <span className={projectedStyle}>{formatPeso(m.actualCommissionPayouts)}</span>
                         ) : (
-                          formatCurrency(m.actualCommissionPayouts)
+                          formatPeso(m.actualCommissionPayouts)
                         )}
                       </TableCell>
                     ))}
                     <TableCell className="text-right font-bold bg-gray-50">
-                      {formatCurrency(ytdActuals.commissionPayouts)}
+                      {formatPeso(ytdActuals.commissionPayouts)}
                     </TableCell>
                     <TableCell className="text-right font-bold bg-gray-100">
-                      {formatCurrency(fullYearProjected.commissionPayouts)}
+                      {formatPeso(fullYearProjected.commissionPayouts)}
                     </TableCell>
                   </TableRow>
 
@@ -505,10 +499,10 @@ export default function IncomeStatementPage() {
                       </TableCell>
                     ))}
                     <TableCell className="text-right font-bold bg-gray-50">
-                      {formatCurrency(ytdActuals.totalExpenses)}
+                      {formatPeso(ytdActuals.totalExpenses)}
                     </TableCell>
                     <TableCell className="text-right font-bold bg-gray-100">
-                      {formatCurrency(fullYearProjected.totalExpenses)}
+                      {formatPeso(fullYearProjected.totalExpenses)}
                     </TableCell>
                   </TableRow>
 
@@ -526,10 +520,10 @@ export default function IncomeStatementPage() {
                       </TableCell>
                     ))}
                     <TableCell className={`text-right font-bold bg-gray-50 ${numClass(ytdActuals.grossProfit)}`}>
-                      {formatCurrency(ytdActuals.grossProfit)}
+                      {formatPeso(ytdActuals.grossProfit)}
                     </TableCell>
                     <TableCell className={`text-right font-bold bg-gray-100 ${numClass(fullYearProjected.grossProfit)}`}>
-                      {formatCurrency(fullYearProjected.grossProfit)}
+                      {formatPeso(fullYearProjected.grossProfit)}
                     </TableCell>
                   </TableRow>
 
@@ -591,10 +585,10 @@ export default function IncomeStatementPage() {
                         )
                       })}
                       <TableCell className={`text-right font-medium bg-gray-50 ${numClass(ytdActuals.grossProfit * (partner.split_percentage / 100))}`}>
-                        {formatCurrency(ytdActuals.grossProfit * (partner.split_percentage / 100))}
+                        {formatPeso(ytdActuals.grossProfit * (partner.split_percentage / 100))}
                       </TableCell>
                       <TableCell className={`text-right font-medium bg-gray-100 ${numClass(fullYearProjected.grossProfit * (partner.split_percentage / 100))}`}>
-                        {formatCurrency(fullYearProjected.grossProfit * (partner.split_percentage / 100))}
+                        {formatPeso(fullYearProjected.grossProfit * (partner.split_percentage / 100))}
                       </TableCell>
                     </TableRow>
                   ))}

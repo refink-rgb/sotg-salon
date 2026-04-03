@@ -33,11 +33,12 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '@/lib/constants'
+import { formatPeso, getToday } from '@/lib/utils'
 import type { Transaction, Employee } from '@/types/database'
 
 export default function ExpensesPage() {
   const supabase = createClient()
-  const today = new Date().toISOString().split('T')[0]
+  const today = getToday()
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -60,6 +61,17 @@ export default function ExpensesPage() {
   const [quickCategory, setQuickCategory] = useState<string | null>(null)
   const [quickAmount, setQuickAmount] = useState('')
   const [submittingQuick, setSubmittingQuick] = useState(false)
+
+  // Load quick expense history from localStorage
+  function getQuickHistory(cat: string): number[] {
+    try {
+      return JSON.parse(localStorage.getItem(`qe_${cat}`) || '[]')
+    } catch { return [] }
+  }
+  function saveQuickHistory(cat: string, amount: number) {
+    const prev = getQuickHistory(cat).filter(a => a !== amount)
+    localStorage.setItem(`qe_${cat}`, JSON.stringify([amount, ...prev].slice(0, 3)))
+  }
 
   // Payment summary
   const [paymentSummary, setPaymentSummary] = useState<
@@ -222,20 +234,22 @@ export default function ExpensesPage() {
     }
   }
 
-  async function handleQuickExpense() {
-    if (!quickCategory || !quickAmount || Number(quickAmount) <= 0) return
+  async function handleQuickExpense(amountOverride?: number) {
+    const amt = amountOverride ?? Number(quickAmount)
+    if (!quickCategory || amt <= 0) return
     setSubmittingQuick(true)
     try {
       const labels: Record<string, string> = { food: 'Food', meds: 'Meds/Supplies', ads: 'Ads/Marketing' }
       const { error } = await supabase.from('transactions').insert({
         date: today,
         type: 'expense',
-        amount: Number(quickAmount),
+        amount: amt,
         category: quickCategory,
         description: labels[quickCategory] || quickCategory,
       })
       if (error) throw error
-      toast.success(`${labels[quickCategory]} ₱${Number(quickAmount).toLocaleString()} added`)
+      saveQuickHistory(quickCategory, amt)
+      toast.success(`${labels[quickCategory]} ${formatPeso(amt)} added`)
       setQuickCategory(null)
       setQuickAmount('')
       fetchData()
@@ -245,10 +259,6 @@ export default function ExpensesPage() {
     } finally {
       setSubmittingQuick(false)
     }
-  }
-
-  function formatPHP(amount: number) {
-    return `\u20B1${amount.toLocaleString()}`
   }
 
   const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0)
@@ -293,7 +303,7 @@ export default function ExpensesPage() {
               >
                 <p className="text-xs text-muted-foreground">{pm.label}</p>
                 <p className="text-lg font-bold text-[#1B4332]">
-                  {formatPHP(paymentSummary[pm.value] || 0)}
+                  {formatPeso(paymentSummary[pm.value] || 0)}
                 </p>
               </div>
             ))}
@@ -302,7 +312,7 @@ export default function ExpensesPage() {
           <div className="flex items-center justify-between rounded-lg bg-[#40916C]/10 p-3">
             <span className="text-sm font-medium">Expected Cash Balance</span>
             <span className="text-lg font-bold text-[#1B4332]">
-              {formatPHP(expectedCash)}
+              {formatPeso(expectedCash)}
             </span>
           </div>
         </CardContent>
@@ -322,7 +332,11 @@ export default function ExpensesPage() {
             ].map(item => (
               <button
                 key={item.key}
-                onClick={() => setQuickCategory(quickCategory === item.key ? null : item.key)}
+                onClick={() => {
+                  const next = quickCategory === item.key ? null : item.key
+                  setQuickCategory(next)
+                  setQuickAmount('')
+                }}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                   quickCategory === item.key
                     ? 'bg-[#1B4332] text-white'
@@ -334,25 +348,42 @@ export default function ExpensesPage() {
             ))}
           </div>
           {quickCategory && (
-            <div className="flex gap-2 items-center">
-              <span className="text-gray-400 text-sm">₱</span>
-              <Input
-                type="number"
-                value={quickAmount}
-                onChange={(e) => setQuickAmount(e.target.value)}
-                placeholder="Amount"
-                className="flex-1"
-                autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') handleQuickExpense() }}
-              />
-              <Button
-                onClick={handleQuickExpense}
-                disabled={submittingQuick || !quickAmount}
-                size="sm"
-                className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
-              >
-                {submittingQuick ? <Loader2 className="size-4 animate-spin" /> : '✓'}
-              </Button>
+            <div className="space-y-2">
+              {getQuickHistory(quickCategory).length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  <span className="text-xs text-gray-400 self-center">Recent:</span>
+                  {getQuickHistory(quickCategory).map(amt => (
+                    <button
+                      key={amt}
+                      onClick={() => handleQuickExpense(amt)}
+                      disabled={submittingQuick}
+                      className="px-3 py-1 text-xs rounded-full bg-[#40916C]/10 text-[#1B4332] font-medium hover:bg-[#40916C]/20 transition-colors"
+                    >
+                      {formatPeso(amt)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2 items-center">
+                <span className="text-gray-400 text-sm">₱</span>
+                <Input
+                  type="number"
+                  value={quickAmount}
+                  onChange={(e) => setQuickAmount(e.target.value)}
+                  placeholder="Amount"
+                  className="flex-1"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleQuickExpense() }}
+                />
+                <Button
+                  onClick={() => handleQuickExpense()}
+                  disabled={submittingQuick || !quickAmount}
+                  size="sm"
+                  className="bg-[#1B4332] text-white hover:bg-[#1B4332]/90"
+                >
+                  {submittingQuick ? <Loader2 className="size-4 animate-spin" /> : '✓'}
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -559,7 +590,7 @@ export default function ExpensesPage() {
                           : emp?.name || '-'}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatPHP(tx.amount)}
+                        {formatPeso(tx.amount)}
                       </TableCell>
                       <TableCell className="hidden text-muted-foreground sm:table-cell">
                         {tx.description || '-'}
@@ -574,7 +605,7 @@ export default function ExpensesPage() {
                     Total
                   </TableCell>
                   <TableCell className="text-right font-bold">
-                    {formatPHP(totalExpenses)}
+                    {formatPeso(totalExpenses)}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell" />
                 </TableRow>

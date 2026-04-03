@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getToday } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,7 +25,7 @@ const STATUS_OPTIONS: { value: AttendanceStatus; label: string; color: string }[
 
 export default function AttendancePage() {
   const supabase = createClient()
-  const today = new Date().toISOString().split('T')[0]
+  const today = getToday()
 
   const [data, setData] = useState<EmployeeAttendance[]>([])
   const [loading, setLoading] = useState(true)

@@ -10,13 +10,7 @@ import { Separator } from '@/components/ui/separator'
 import { Plus, Trash2, TrendingUp, Calculator, Megaphone } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Transaction, RecurringExpense, Partner, Visit } from '@/types/database'
-
-function formatCurrency(amount: number): string {
-  if (amount < 0) {
-    return `(₱${Math.abs(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
-  }
-  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
+import { formatPeso } from '@/lib/utils'
 
 interface ExpenseItem {
   id: string
@@ -226,7 +220,7 @@ export default function ForecastingPage() {
                 <CardTitle className="text-sm font-medium text-gray-500">Sales to Date</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xl font-bold text-green-700">{formatCurrency(actuals.salesToDate)}</p>
+                <p className="text-xl font-bold text-green-700">{formatPeso(actuals.salesToDate)}</p>
               </CardContent>
             </Card>
             <Card>
@@ -234,7 +228,7 @@ export default function ForecastingPage() {
                 <CardTitle className="text-sm font-medium text-gray-500">Expenses to Date</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xl font-bold text-red-600">{formatCurrency(actuals.expensesToDate)}</p>
+                <p className="text-xl font-bold text-red-600">{formatPeso(actuals.expensesToDate)}</p>
               </CardContent>
             </Card>
             <Card>
@@ -251,7 +245,7 @@ export default function ForecastingPage() {
                 <CardTitle className="text-sm font-medium text-gray-500">Daily Sales Pace</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xl font-bold">{formatCurrency(actuals.dailyPace)}</p>
+                <p className="text-xl font-bold">{formatPeso(actuals.dailyPace)}</p>
               </CardContent>
             </Card>
             <Card>
@@ -259,7 +253,7 @@ export default function ForecastingPage() {
                 <CardTitle className="text-sm font-medium text-gray-500">Projected Month Sales</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xl font-bold text-[#1B4332]">{formatCurrency(actuals.projectedMonthSales)}</p>
+                <p className="text-xl font-bold text-[#1B4332]">{formatPeso(actuals.projectedMonthSales)}</p>
               </CardContent>
             </Card>
           </div>
@@ -369,7 +363,7 @@ export default function ForecastingPage() {
                   <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Remaining ad spend</span>
-                      <span className="font-medium">{formatCurrency(revForecast.remainingAdSpend)}</span>
+                      <span className="font-medium">{formatPeso(revForecast.remainingAdSpend)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Expected messages</span>
@@ -381,29 +375,29 @@ export default function ForecastingPage() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Expected revenue (from ads)</span>
-                      <span className="font-medium text-green-700">{formatCurrency(revForecast.expectedRevenue)}</span>
+                      <span className="font-medium text-green-700">{formatPeso(revForecast.expectedRevenue)}</span>
                     </div>
 
                     <Separator />
 
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Actual sales to date</span>
-                      <span className="font-medium">{formatCurrency(actuals.salesToDate)}</span>
+                      <span className="font-medium">{formatPeso(actuals.salesToDate)}</span>
                     </div>
                     <div className="flex justify-between font-semibold">
                       <span>Total projected month revenue</span>
-                      <span className="text-[#1B4332]">{formatCurrency(revForecast.totalProjectedMonthRevenue)}</span>
+                      <span className="text-[#1B4332]">{formatPeso(revForecast.totalProjectedMonthRevenue)}</span>
                     </div>
 
                     <Separator />
 
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Actual expenses to date</span>
-                      <span className="font-medium text-red-600">- {formatCurrency(actuals.expensesToDate)}</span>
+                      <span className="font-medium text-red-600">- {formatPeso(actuals.expensesToDate)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Remaining projected expenses</span>
-                      <span className="font-medium text-red-600">- {formatCurrency(totalProjectedExpenses)}</span>
+                      <span className="font-medium text-red-600">- {formatPeso(totalProjectedExpenses)}</span>
                     </div>
 
                     <Separator />
@@ -411,7 +405,7 @@ export default function ForecastingPage() {
                     <div className="flex justify-between text-lg font-bold">
                       <span>Projected profit</span>
                       <span className={revForecast.projectedProfit < 0 ? 'text-red-600' : 'text-[#1B4332]'}>
-                        {formatCurrency(revForecast.projectedProfit)}
+                        {formatPeso(revForecast.projectedProfit)}
                       </span>
                     </div>
 
@@ -423,7 +417,7 @@ export default function ForecastingPage() {
                           <div key={p.id} className="flex justify-between text-sm">
                             <span className="text-gray-600">{p.name} ({p.split_percentage}%)</span>
                             <span className={revForecast.projectedProfit * (p.split_percentage / 100) < 0 ? 'text-red-600' : ''}>
-                              {formatCurrency(revForecast.projectedProfit * (p.split_percentage / 100))}
+                              {formatPeso(revForecast.projectedProfit * (p.split_percentage / 100))}
                             </span>
                           </div>
                         ))}
@@ -473,7 +467,7 @@ export default function ForecastingPage() {
               <Separator className="my-4" />
               <div className="flex justify-between items-center font-semibold">
                 <span>Total Projected Expenses</span>
-                <span>{formatCurrency(totalProjectedExpenses)}</span>
+                <span>{formatPeso(totalProjectedExpenses)}</span>
               </div>
             </CardContent>
           </Card>
@@ -489,21 +483,21 @@ export default function ForecastingPage() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Projected Sales</span>
-                  <span className="font-medium">{formatCurrency(actuals.projectedMonthSales)}</span>
+                  <span className="font-medium">{formatPeso(actuals.projectedMonthSales)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Actual Expenses to Date</span>
-                  <span className="font-medium text-red-600">- {formatCurrency(actuals.expensesToDate)}</span>
+                  <span className="font-medium text-red-600">- {formatPeso(actuals.expensesToDate)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Remaining Projected Expenses</span>
-                  <span className="font-medium text-red-600">- {formatCurrency(totalProjectedExpenses)}</span>
+                  <span className="font-medium text-red-600">- {formatPeso(totalProjectedExpenses)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-lg font-bold">
                   <span>Estimated Net Profit</span>
                   <span className={estimatedNetProfit < 0 ? 'text-red-600' : 'text-[#1B4332]'}>
-                    {formatCurrency(estimatedNetProfit)}
+                    {formatPeso(estimatedNetProfit)}
                   </span>
                 </div>
 
@@ -515,7 +509,7 @@ export default function ForecastingPage() {
                       <div key={p.id} className="flex justify-between text-sm">
                         <span>{p.name} ({p.split_percentage}%)</span>
                         <span className={estimatedNetProfit * (p.split_percentage / 100) < 0 ? 'text-red-600' : ''}>
-                          {formatCurrency(estimatedNetProfit * (p.split_percentage / 100))}
+                          {formatPeso(estimatedNetProfit * (p.split_percentage / 100))}
                         </span>
                       </div>
                     ))}
@@ -560,7 +554,7 @@ export default function ForecastingPage() {
                     <div key={item.id} className="flex items-center justify-between py-1 px-2 bg-orange-50 rounded">
                       <span className="text-sm">{item.name}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{formatCurrency(item.amount)}</span>
+                        <span className="text-sm font-medium">{formatPeso(item.amount)}</span>
                         <Button size="icon-xs" variant="ghost" onClick={() => handleRemoveWhatIf(item.id)}>
                           <Trash2 className="size-3 text-red-500" />
                         </Button>
@@ -574,23 +568,23 @@ export default function ForecastingPage() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Base Estimated Profit</span>
-                  <span className="font-medium">{formatCurrency(estimatedNetProfit)}</span>
+                  <span className="font-medium">{formatPeso(estimatedNetProfit)}</span>
                 </div>
                 {totalWhatIf > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">What-If Expenses</span>
-                    <span className="font-medium text-orange-600">- {formatCurrency(totalWhatIf)}</span>
+                    <span className="font-medium text-orange-600">- {formatPeso(totalWhatIf)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-bold">
                   <span>Net After What-If</span>
                   <span className={whatIfNetProfit < 0 ? 'text-red-600' : 'text-[#1B4332]'}>
-                    {formatCurrency(whatIfNetProfit)}
+                    {formatPeso(whatIfNetProfit)}
                   </span>
                 </div>
                 {totalWhatIf > 0 && (
                   <p className="text-xs text-gray-500">
-                    Impact: {formatCurrency(estimatedNetProfit - whatIfNetProfit)} reduction in profit
+                    Impact: {formatPeso(estimatedNetProfit - whatIfNetProfit)} reduction in profit
                   </p>
                 )}
               </div>
