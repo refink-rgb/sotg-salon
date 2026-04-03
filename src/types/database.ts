@@ -92,6 +92,7 @@ export interface Employee {
   id: string
   name: string
   daily_rate: number
+  monthly_salary: number
   commission_per_head_rate: number
   commission_percentage: number
   is_internal: boolean

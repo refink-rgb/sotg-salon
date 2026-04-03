@@ -50,6 +50,7 @@ export default function PayrollPage() {
   const [newEmp, setNewEmp] = useState({
     name: '',
     daily_rate: '',
+    monthly_salary: '',
     commission_per_head_rate: '',
     commission_percentage: '',
     is_in_service_charge_pool: true,
@@ -63,6 +64,7 @@ export default function PayrollPage() {
     id: '',
     name: '',
     daily_rate: '',
+    monthly_salary: '',
     commission_per_head_rate: '',
     commission_percentage: '',
     is_in_service_charge_pool: true,
@@ -161,7 +163,7 @@ export default function PayrollPage() {
       const daysWorked = attendance.filter(a => a.employee_id === emp.id && a.status === 'present').length
       empAcc[emp.id] = {
         daysWorked,
-        baseSalary: emp.daily_rate * daysWorked,
+        baseSalary: emp.monthly_salary > 0 ? emp.monthly_salary : emp.daily_rate * daysWorked,
         perHeadCommission: 0,
         percentageCommission: 0,
         bonusCommission: 0,
@@ -268,6 +270,7 @@ export default function PayrollPage() {
       const { error } = await supabase.from('employees').insert({
         name: newEmp.name.trim(),
         daily_rate: Number(newEmp.daily_rate) || 0,
+        monthly_salary: Number(newEmp.monthly_salary) || 0,
         commission_per_head_rate: Number(newEmp.commission_per_head_rate) || 0,
         commission_percentage: Number(newEmp.commission_percentage) / 100 || 0,
         is_in_service_charge_pool: newEmp.is_in_service_charge_pool,
@@ -277,7 +280,7 @@ export default function PayrollPage() {
       if (error) throw error
       toast.success('Employee added')
       setDialogOpen(false)
-      setNewEmp({ name: '', daily_rate: '', commission_per_head_rate: '', commission_percentage: '', is_in_service_charge_pool: true, is_internal: true })
+      setNewEmp({ name: '', daily_rate: '', monthly_salary: '', commission_per_head_rate: '', commission_percentage: '', is_in_service_charge_pool: true, is_internal: true })
 
       // Refresh
       const { data } = await supabase.from('employees').select('*').order('name')
@@ -295,6 +298,7 @@ export default function PayrollPage() {
       id: emp.id,
       name: emp.name,
       daily_rate: String(emp.daily_rate),
+      monthly_salary: String(emp.monthly_salary || 0),
       commission_per_head_rate: String(emp.commission_per_head_rate),
       commission_percentage: String(emp.commission_percentage * 100),
       is_in_service_charge_pool: emp.is_in_service_charge_pool,
@@ -317,6 +321,7 @@ export default function PayrollPage() {
         .update({
           name: editEmp.name.trim(),
           daily_rate: Number(editEmp.daily_rate) || 0,
+          monthly_salary: Number(editEmp.monthly_salary) || 0,
           commission_per_head_rate: Number(editEmp.commission_per_head_rate) || 0,
           commission_percentage: Number(editEmp.commission_percentage) / 100 || 0,
           is_in_service_charge_pool: editEmp.is_in_service_charge_pool,
@@ -485,16 +490,21 @@ export default function PayrollPage() {
                   <Label htmlFor="emp-name">Name</Label>
                   <Input id="emp-name" value={newEmp.name} onChange={e => setNewEmp(p => ({ ...p, name: e.target.value }))} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label htmlFor="emp-rate">Daily Rate</Label>
                     <Input id="emp-rate" type="number" value={newEmp.daily_rate} onChange={e => setNewEmp(p => ({ ...p, daily_rate: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label htmlFor="emp-monthly">Monthly Salary</Label>
+                    <Input id="emp-monthly" type="number" value={newEmp.monthly_salary} onChange={e => setNewEmp(p => ({ ...p, monthly_salary: e.target.value }))} />
                   </div>
                   <div>
                     <Label htmlFor="emp-perhead">Per Head Rate</Label>
                     <Input id="emp-perhead" type="number" value={newEmp.commission_per_head_rate} onChange={e => setNewEmp(p => ({ ...p, commission_per_head_rate: e.target.value }))} />
                   </div>
                 </div>
+                <p className="text-xs text-gray-400">Monthly salary overrides daily rate if set</p>
                 <div>
                   <Label htmlFor="emp-comm">Commission %</Label>
                   <Input id="emp-comm" type="number" value={newEmp.commission_percentage} onChange={e => setNewEmp(p => ({ ...p, commission_percentage: e.target.value }))} />
@@ -530,8 +540,8 @@ export default function PayrollPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead className="text-right">Daily Rate</TableHead>
-                <TableHead className="text-right">Monthly Est</TableHead>
+                <TableHead className="text-right">Salary</TableHead>
+                <TableHead className="text-right">Monthly</TableHead>
                 <TableHead className="text-right">Commission %</TableHead>
                 <TableHead className="text-right">Per Head</TableHead>
                 <TableHead>SC Pool</TableHead>
@@ -548,8 +558,12 @@ export default function PayrollPage() {
                       {emp.is_internal ? 'Internal' : 'External'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">{formatPeso(emp.daily_rate)}</TableCell>
-                  <TableCell className="text-right">{formatPeso(emp.daily_rate * 26)}</TableCell>
+                  <TableCell className="text-right">
+                    {emp.monthly_salary > 0
+                      ? <span title="Monthly salary">{formatPeso(emp.monthly_salary)}/mo</span>
+                      : <span title="Daily rate">{formatPeso(emp.daily_rate)}/day</span>}
+                  </TableCell>
+                  <TableCell className="text-right">{formatPeso(emp.monthly_salary > 0 ? emp.monthly_salary : emp.daily_rate * 26)}</TableCell>
                   <TableCell className="text-right">{(emp.commission_percentage * 100).toFixed(1)}%</TableCell>
                   <TableCell className="text-right">{formatPeso(emp.commission_per_head_rate)}</TableCell>
                   <TableCell>{emp.is_in_service_charge_pool ? 'Yes' : 'No'}</TableCell>
@@ -701,16 +715,21 @@ export default function PayrollPage() {
               <Label htmlFor="edit-name">Name</Label>
               <Input id="edit-name" value={editEmp.name} onChange={e => setEditEmp(p => ({ ...p, name: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label htmlFor="edit-rate">Daily Rate</Label>
                 <Input id="edit-rate" type="number" value={editEmp.daily_rate} onChange={e => setEditEmp(p => ({ ...p, daily_rate: e.target.value }))} />
+              </div>
+              <div>
+                <Label htmlFor="edit-monthly">Monthly Salary</Label>
+                <Input id="edit-monthly" type="number" value={editEmp.monthly_salary} onChange={e => setEditEmp(p => ({ ...p, monthly_salary: e.target.value }))} />
               </div>
               <div>
                 <Label htmlFor="edit-perhead">Per Head Rate</Label>
                 <Input id="edit-perhead" type="number" value={editEmp.commission_per_head_rate} onChange={e => setEditEmp(p => ({ ...p, commission_per_head_rate: e.target.value }))} />
               </div>
             </div>
+            <p className="text-xs text-gray-400">Monthly salary overrides daily rate if set</p>
             <div>
               <Label htmlFor="edit-comm">Commission %</Label>
               <Input id="edit-comm" type="number" value={editEmp.commission_percentage} onChange={e => setEditEmp(p => ({ ...p, commission_percentage: e.target.value }))} />

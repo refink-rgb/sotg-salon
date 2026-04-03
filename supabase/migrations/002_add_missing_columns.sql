@@ -14,6 +14,9 @@ ALTER TABLE visits ADD COLUMN IF NOT EXISTS stylist_employee_id uuid REFERENCES 
 -- Internal vs external employees
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_internal boolean DEFAULT true;
 
+-- Monthly salary option (if > 0, overrides daily_rate × daysWorked)
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS monthly_salary numeric DEFAULT 0;
+
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
