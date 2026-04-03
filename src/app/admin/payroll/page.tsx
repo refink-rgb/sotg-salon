@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { format, getDaysInMonth, startOfMonth, eachDayOfInterval, endOfMonth } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { MONTHS } from '@/lib/constants'
-import { calculateCommission, calculateServiceCharges } from '@/lib/commission'
+import { calculateServiceCharges } from '@/lib/commission'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -125,62 +125,107 @@ export default function PayrollPage() {
     fetchData()
   }, [selectedMonth, selectedYear])
 
-  // Compute payroll
+  // Compute payroll — day-by-day so absent employees are excluded from that day's commissions
   const payrollData = useMemo(() => {
-    const totalCustomers = visits.length
-    const totalSales = transactions
-      .filter(t => t.type === 'sale')
-      .reduce((s, t) => s + t.amount, 0)
-
-    const totalServiceCharges = calculateServiceCharges(visits, scThreshold, scAmount)
-    const qualifyingBillCount = visits.filter(v => (v.total_amount ?? 0) >= scThreshold).length
-
     const activeEmployees = employees.filter(e => e.is_active)
-    const serviceChargePoolSize = activeEmployees.filter(e => e.is_in_service_charge_pool).length
-
-    // Calculate external stylist sales (visits handled by external employees)
     const externalEmployeeIds = new Set(employees.filter(e => !e.is_internal).map(e => e.id))
-    const externalSales = visits
-      .filter(v => v.stylist_employee_id && externalEmployeeIds.has(v.stylist_employee_id))
-      .reduce((s, v) => s + (v.total_amount ?? 0), 0)
+
+    // Group visits by date
+    const visitsByDate: Record<string, Visit[]> = {}
+    visits.forEach(v => {
+      if (!visitsByDate[v.date]) visitsByDate[v.date] = []
+      visitsByDate[v.date].push(v)
+    })
+
+    // Group sale transactions by date
+    const salesByDate: Record<string, number> = {}
+    transactions.filter(t => t.type === 'sale').forEach(t => {
+      salesByDate[t.date] = (salesByDate[t.date] || 0) + t.amount
+    })
+
+    // Build attendance lookup: `empId_date` -> status
+    const attendanceMap = new Map<string, string>()
+    attendance.forEach(a => {
+      attendanceMap.set(`${a.employee_id}_${a.date}`, a.status)
+    })
+
+    // All dates with visits or sales
+    const allDates = new Set([...Object.keys(visitsByDate), ...Object.keys(salesByDate)])
+
+    // Per-employee accumulators
+    const empAcc: Record<string, {
+      daysWorked: number; baseSalary: number; perHeadCommission: number
+      percentageCommission: number; bonusCommission: number; serviceChargeShare: number
+    }> = {}
+    activeEmployees.forEach(emp => {
+      const daysWorked = attendance.filter(a => a.employee_id === emp.id && a.status === 'present').length
+      empAcc[emp.id] = {
+        daysWorked,
+        baseSalary: emp.daily_rate * daysWorked,
+        perHeadCommission: 0,
+        percentageCommission: 0,
+        bonusCommission: 0,
+        serviceChargeShare: 0,
+      }
+    })
+
+    // For each day, distribute commissions only to employees who were present
+    allDates.forEach(date => {
+      const dayVisits = visitsByDate[date] || []
+      const daySales = salesByDate[date] || 0
+      const dayCustomers = dayVisits.length
+      const dayServiceCharges = calculateServiceCharges(dayVisits, scThreshold, scAmount)
+      const dayQualifyingBills = dayVisits.filter(v => (v.total_amount ?? 0) >= scThreshold).length
+
+      const dayExternalSales = dayVisits
+        .filter(v => v.stylist_employee_id && externalEmployeeIds.has(v.stylist_employee_id))
+        .reduce((s, v) => s + (v.total_amount ?? 0), 0)
+
+      // Only employees marked present get commissions for this day
+      const presentEmployees = activeEmployees.filter(
+        emp => attendanceMap.get(`${emp.id}_${date}`) === 'present'
+      )
+      const dayScPoolSize = presentEmployees.filter(e => e.is_in_service_charge_pool).length
+
+      presentEmployees.forEach(emp => {
+        const acc = empAcc[emp.id]
+        acc.perHeadCommission += emp.commission_per_head_rate * dayCustomers
+        acc.bonusCommission += dayQualifyingBills * bonusAmount
+
+        // Percentage commission: internal vs external sales base
+        const relevantSales = emp.is_internal
+          ? daySales - dayServiceCharges - dayExternalSales
+          : dayVisits.filter(v => v.stylist_employee_id === emp.id).reduce((s, v) => s + (v.total_amount ?? 0), 0)
+        acc.percentageCommission += emp.commission_percentage * relevantSales
+
+        // Service charge share — split among present pool members only
+        if (emp.is_in_service_charge_pool && dayScPoolSize > 0) {
+          acc.serviceChargeShare += dayServiceCharges / dayScPoolSize
+        }
+      })
+    })
 
     return activeEmployees.map(emp => {
-      const daysWorked = attendance.filter(
-        a => a.employee_id === emp.id && a.status === 'present'
-      ).length
-
+      const d = empAcc[emp.id]
       const advances = transactions
         .filter(t => (t.type === 'salary' || t.type === 'commission') && t.employee_id === emp.id)
         .reduce((s, t) => s + t.amount, 0)
 
-      // Compute the relevant sales base for percentage commission
-      let relevantSales: number
-      if (emp.is_internal) {
-        // Internal: total sales minus service charges minus external stylist sales
-        relevantSales = totalSales - totalServiceCharges - externalSales
-      } else {
-        // External: only their own visits (where stylist_employee_id = their id)
-        relevantSales = visits
-          .filter(v => v.stylist_employee_id === emp.id)
-          .reduce((s, v) => s + (v.total_amount ?? 0), 0)
-      }
-
-      const result = calculateCommission(
-        emp,
-        totalCustomers,
-        totalSales,
-        totalServiceCharges,
-        qualifyingBillCount,
-        serviceChargePoolSize,
-        daysWorked,
+      const totalPay = d.baseSalary + d.perHeadCommission + d.percentageCommission + d.bonusCommission + d.serviceChargeShare
+      return {
+        employeeId: emp.id,
+        employeeName: emp.name,
+        daysWorked: d.daysWorked,
+        baseSalary: d.baseSalary,
+        perHeadCommission: d.perHeadCommission,
+        percentageCommission: d.percentageCommission,
+        bonusCommission: d.bonusCommission,
+        serviceChargeShare: d.serviceChargeShare,
+        totalPay,
+        amountPaid: advances,
+        remaining: totalPay - advances,
         advances,
-        0,
-        bonusAmount,
-        emp.is_internal,
-        relevantSales,
-      )
-
-      return { ...result, advances }
+      }
     })
   }, [employees, attendance, transactions, visits, scThreshold, scAmount, bonusAmount])
 
