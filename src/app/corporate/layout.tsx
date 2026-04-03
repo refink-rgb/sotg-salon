@@ -8,18 +8,14 @@ import {
   FileText,
   Users,
   DollarSign,
-  TrendingUp,
-  Upload,
-  Settings,
+  List,
   ArrowLeft,
   LogOut,
   Menu,
-  UserSearch,
-  List,
+  Building2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { BranchProvider } from '@/lib/branch-context'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -29,15 +25,12 @@ import {
 } from '@/components/ui/sheet'
 
 const navLinks = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/customers', label: 'Customers', icon: UserSearch },
-  { href: '/admin/income-statement', label: 'Income Statement', icon: FileText },
-  { href: '/admin/payroll', label: 'Payroll', icon: Users },
-  { href: '/admin/cash-flow', label: 'Cash Flow', icon: DollarSign },
-  { href: '/admin/transactions', label: 'Transactions', icon: List },
-  { href: '/admin/forecasting', label: 'Forecasting', icon: TrendingUp },
-  { href: '/admin/import', label: 'Import Data', icon: Upload },
-  { href: '/admin/settings', label: 'Settings', icon: Settings },
+  { href: '/corporate', label: 'Overview', icon: LayoutDashboard },
+  { href: '/corporate/income-statement', label: 'Income Statement', icon: FileText },
+  { href: '/corporate/payroll', label: 'Payroll', icon: Users },
+  { href: '/corporate/cash-flow', label: 'Cash Flow', icon: DollarSign },
+  { href: '/corporate/transactions', label: 'Transactions', icon: List },
+  { href: '/corporate/branches', label: 'Branches', icon: Building2 },
 ]
 
 function SidebarContent({ pathname, onLogout, onNavigate }: { pathname: string; onLogout: () => void; onNavigate?: () => void }) {
@@ -46,7 +39,7 @@ function SidebarContent({ pathname, onLogout, onNavigate }: { pathname: string; 
       <div className="p-4 border-b border-white/10">
         <img src="/logo-192.png" alt="SOTG" className="h-12 w-12 rounded-full mx-auto mb-2" />
         <h1 className="text-xl font-bold tracking-tight text-center">SOTG</h1>
-        <p className="text-xs text-white/60 text-center">Salon On The Go</p>
+        <p className="text-xs text-white/60 text-center">Corporate</p>
       </div>
 
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
@@ -96,7 +89,7 @@ function SidebarContent({ pathname, onLogout, onNavigate }: { pathname: string; 
   )
 }
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function CorporateLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -110,13 +103,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:shrink-0 bg-[#1B4332] text-white">
+      <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:shrink-0 bg-[#0B2545] text-white">
         <SidebarContent pathname={pathname} onLogout={handleLogout} />
       </aside>
 
       {/* Mobile header + sidebar sheet */}
       <div className="flex flex-col flex-1 min-w-0">
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-[#1B4332] text-white">
+        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-[#0B2545] text-white">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="text-white hover:bg-white/10" />}>
               <Menu className="size-5" />
@@ -124,17 +117,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <SheetContent
               side="left"
               showCloseButton={false}
-              className="w-60 p-0 bg-[#1B4332] text-white border-none"
+              className="w-60 p-0 bg-[#0B2545] text-white border-none"
             >
               <SheetTitle className="sr-only">Navigation</SheetTitle>
               <SidebarContent pathname={pathname} onLogout={handleLogout} onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
-          <h1 className="text-lg font-bold">SOTG Admin</h1>
+          <h1 className="text-lg font-bold">SOTG Corporate</h1>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          <BranchProvider>{children}</BranchProvider>
+          {children}
         </main>
       </div>
     </div>

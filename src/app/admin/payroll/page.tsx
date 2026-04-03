@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { format, getDaysInMonth, startOfMonth, eachDayOfInterval, endOfMonth } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { useBranch } from '@/lib/branch-context'
 import { MONTHS } from '@/lib/constants'
 import { calculateServiceCharges } from '@/lib/commission'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,6 +36,7 @@ interface PayrollRow extends CommissionResult {
 }
 
 export default function PayrollPage() {
+  const { branchId } = useBranch()
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth())
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
@@ -83,6 +85,7 @@ export default function PayrollPage() {
 
   useEffect(() => {
     async function fetchData() {
+      if (!branchId) return
       setLoading(true)
       const supabase = createClient()
       const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`
@@ -92,10 +95,10 @@ export default function PayrollPage() {
 
       try {
         const [empRes, attRes, txnRes, visitRes, settingsRes] = await Promise.all([
-          supabase.from('employees').select('*').order('name'),
-          supabase.from('daily_attendance').select('*').gte('date', monthStart).lte('date', monthEnd),
-          supabase.from('transactions').select('*').gte('date', monthStart).lte('date', monthEnd),
-          supabase.from('visits').select('*').eq('status', 'completed').gte('date', monthStart).lte('date', monthEnd),
+          supabase.from('employees').select('*').eq('branch_id', branchId).order('name'),
+          supabase.from('daily_attendance').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd),
+          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd),
+          supabase.from('visits').select('*').eq('branch_id', branchId).eq('status', 'completed').gte('date', monthStart).lte('date', monthEnd),
           supabase.from('app_settings').select('*'),
         ])
 
@@ -125,7 +128,7 @@ export default function PayrollPage() {
     }
 
     fetchData()
-  }, [selectedMonth, selectedYear])
+  }, [selectedMonth, selectedYear, branchId])
 
   // Compute payroll — day-by-day so absent employees are excluded from that day's commissions
   const payrollData = useMemo(() => {
@@ -276,6 +279,7 @@ export default function PayrollPage() {
         is_in_service_charge_pool: newEmp.is_in_service_charge_pool,
         is_internal: newEmp.is_internal,
         is_active: true,
+        branch_id: branchId,
       })
       if (error) throw error
       toast.success('Employee added')
@@ -283,7 +287,7 @@ export default function PayrollPage() {
       setNewEmp({ name: '', daily_rate: '', monthly_salary: '', commission_per_head_rate: '', commission_percentage: '', is_in_service_charge_pool: true, is_internal: true })
 
       // Refresh
-      const { data } = await supabase.from('employees').select('*').order('name')
+      const { data } = await supabase.from('employees').select('*').eq('branch_id', branchId).order('name')
       setEmployees(data ?? [])
     } catch (error) {
       console.error('Error:', error)
@@ -334,7 +338,7 @@ export default function PayrollPage() {
       setEditDialogOpen(false)
 
       // Refresh
-      const { data } = await supabase.from('employees').select('*').order('name')
+      const { data } = await supabase.from('employees').select('*').eq('branch_id', branchId).order('name')
       setEmployees(data ?? [])
     } catch (error) {
       console.error('Error:', error)
@@ -356,7 +360,7 @@ export default function PayrollPage() {
       setEditDialogOpen(false)
 
       // Refresh
-      const { data } = await supabase.from('employees').select('*').order('name')
+      const { data } = await supabase.from('employees').select('*').eq('branch_id', branchId).order('name')
       setEmployees(data ?? [])
     } catch (error) {
       console.error('Error:', error)
@@ -380,6 +384,7 @@ export default function PayrollPage() {
         description: `Payroll payout for ${MONTHS[selectedMonth]} ${selectedYear}`,
         employee_id: empResult.employeeId,
         payment_method: 'cash',
+        branch_id: branchId,
       })
       if (error) throw error
       toast.success(`Paid ${formatPeso(empResult.remaining)} to ${empResult.employeeName}`)
@@ -390,6 +395,7 @@ export default function PayrollPage() {
       const { data } = await supabase
         .from('transactions')
         .select('*')
+        .eq('branch_id', branchId)
         .gte('date', `${monthStr}-01`)
         .lte('date', `${monthStr}-${String(daysInMonth).padStart(2, '0')}`)
       setTransactions(data ?? [])

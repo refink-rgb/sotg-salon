@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getToday } from '@/lib/utils'
+import { useBranch } from '@/lib/branch-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,6 +26,7 @@ const STATUS_OPTIONS: { value: AttendanceStatus; label: string; color: string }[
 
 export default function AttendancePage() {
   const supabase = createClient()
+  const { branchId } = useBranch()
   const today = getToday()
 
   const [data, setData] = useState<EmployeeAttendance[]>([])
@@ -33,16 +35,19 @@ export default function AttendancePage() {
   const [notes, setNotes] = useState<Record<string, string>>({})
 
   const fetchData = useCallback(async () => {
+    if (!branchId) return
     const [empRes, attRes] = await Promise.all([
       supabase
         .from('employees')
         .select('*')
         .eq('is_active', true)
+        .eq('branch_id', branchId)
         .order('name'),
       supabase
         .from('daily_attendance')
         .select('*')
-        .eq('date', today),
+        .eq('date', today)
+        .eq('branch_id', branchId),
     ])
 
     if (empRes.error) console.error(empRes.error)
@@ -66,7 +71,7 @@ export default function AttendancePage() {
     setNotes(noteMap)
 
     setLoading(false)
-  }, [today])
+  }, [today, branchId])
 
   useEffect(() => {
     fetchData()
@@ -89,6 +94,7 @@ export default function AttendancePage() {
           date: today,
           status,
           notes: notes[employeeId]?.trim() || null,
+          branch_id: branchId,
         })
         if (error) throw error
       }

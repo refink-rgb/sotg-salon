@@ -34,10 +34,12 @@ import {
 import { toast } from 'sonner'
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '@/lib/constants'
 import { formatPeso, getToday } from '@/lib/utils'
+import { useBranch } from '@/lib/branch-context'
 import type { Transaction, Employee } from '@/types/database'
 
 export default function ExpensesPage() {
   const supabase = createClient()
+  const { branchId } = useBranch()
   const today = getToday()
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -79,18 +81,21 @@ export default function ExpensesPage() {
   >({})
 
   const fetchData = useCallback(async () => {
+    if (!branchId) return
     const [txRes, empRes, payRes] = await Promise.all([
       supabase
         .from('transactions')
         .select('*')
         .eq('date', today)
         .eq('is_back_office', false)
+        .eq('branch_id', branchId)
         .in('type', ['expense', 'salary', 'commission', 'withdrawal'])
         .order('created_at', { ascending: false }),
       supabase
         .from('employees')
         .select('*')
         .eq('is_active', true)
+        .eq('branch_id', branchId)
         .order('name'),
       supabase
         .from('visit_payments')
@@ -113,7 +118,7 @@ export default function ExpensesPage() {
     setPaymentSummary(summary)
 
     setLoading(false)
-  }, [today])
+  }, [today, branchId])
 
   useEffect(() => {
     fetchData()
@@ -138,6 +143,7 @@ export default function ExpensesPage() {
         category: expCategory,
         description: expNote.trim() || categoryLabel,
         is_back_office: expBackOffice,
+        branch_id: branchId,
       })
       if (error) throw error
 
@@ -181,6 +187,7 @@ export default function ExpensesPage() {
         category?: string
         description: string
         is_back_office: boolean
+        branch_id: string | null
       }[] = []
 
       if (salaryVal > 0) {
@@ -192,6 +199,7 @@ export default function ExpensesPage() {
           category: 'salary',
           description: `Salary - ${emp?.name || 'Unknown'}`,
           is_back_office: payoutBackOffice,
+          branch_id: branchId,
         })
       }
       if (scVal > 0) {
@@ -203,6 +211,7 @@ export default function ExpensesPage() {
           category: 'service_charge',
           description: `Service Charge - ${emp?.name || 'Unknown'}`,
           is_back_office: payoutBackOffice,
+          branch_id: branchId,
         })
       }
       if (commissionVal > 0) {
@@ -213,6 +222,7 @@ export default function ExpensesPage() {
           employee_id: payoutEmployee,
           description: `Commission - ${emp?.name || 'Unknown'}`,
           is_back_office: payoutBackOffice,
+          branch_id: branchId,
         })
       }
 
@@ -246,6 +256,7 @@ export default function ExpensesPage() {
         amount: amt,
         category: quickCategory,
         description: labels[quickCategory] || quickCategory,
+        branch_id: branchId,
       })
       if (error) throw error
       saveQuickHistory(quickCategory, amt)

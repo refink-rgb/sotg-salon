@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useBranch } from '@/lib/branch-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,7 @@ import type { Service, Employee, RecurringExpense, Partner, AppSettings } from '
 import { EXPENSE_CATEGORIES } from '@/lib/constants'
 
 export default function SettingsPage() {
+  const { branchId } = useBranch()
   const [services, setServices] = useState<Service[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([])
@@ -70,15 +72,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchAll()
-  }, [])
+  }, [branchId])
 
   async function fetchAll() {
+    if (!branchId) return
     setLoading(true)
     try {
       const [svcRes, empRes, reRes, partRes, settRes] = await Promise.all([
         supabase.from('services').select('*').order('display_order'),
         supabase.from('employees').select('*').order('name'),
-        supabase.from('recurring_expenses').select('*').order('name'),
+        supabase.from('recurring_expenses').select('*').eq('branch_id', branchId).order('name'),
         supabase.from('partners').select('*').order('name'),
         supabase.from('app_settings').select('*'),
       ])
@@ -222,12 +225,13 @@ export default function SettingsPage() {
         category: newExpCategory,
         default_amount: Number(newExpAmount) || 0,
         is_active: true,
+        branch_id: branchId,
       })
       if (error) throw error
       setNewExpName('')
       setNewExpAmount('')
       toast.success('Recurring expense added')
-      const { data } = await supabase.from('recurring_expenses').select('*').order('name')
+      const { data } = await supabase.from('recurring_expenses').select('*').eq('branch_id', branchId).order('name')
       setRecurringExpenses(data ?? [])
     } catch (error) {
       console.error('Error:', error)

@@ -30,7 +30,7 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname
 
   // Public routes - no auth needed
-  if (path === '/check-in' || path === '/check-in/success' || path === '/login' || path === '/') {
+  if (path === '/check-in' || path === '/check-in/success' || path === '/login' || path === '/' || path.startsWith('/b/')) {
     return supabaseResponse
   }
 
@@ -41,7 +41,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Admin routes - check role
+  // Admin routes - check role (admin or owner can access)
   if (path.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -49,7 +49,22 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    if (profile?.role !== 'admin' && profile?.role !== 'owner') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // Corporate routes - owner only
+  if (path.startsWith('/corporate')) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'owner') {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
       return NextResponse.redirect(url)

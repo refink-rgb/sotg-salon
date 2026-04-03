@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useBranch } from '@/lib/branch-context'
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '@/lib/constants'
 import {
   format,
@@ -56,6 +57,7 @@ interface TransactionWithEmployee extends Transaction {
 }
 
 export default function TransactionsPage() {
+  const { branchId } = useBranch()
   const now = new Date()
   const [dateFrom, setDateFrom] = useState(formatDateInput(startOfMonth(now)))
   const [dateTo, setDateTo] = useState(formatDateInput(endOfMonth(now)))
@@ -89,19 +91,21 @@ export default function TransactionsPage() {
     is_back_office: false,
   })
 
-  // Fetch employees on mount
+  // Fetch employees
   useEffect(() => {
     async function loadEmployees() {
+      if (!branchId) return
       const supabase = createClient()
       const { data } = await supabase
         .from('employees')
         .select('id, name')
+        .eq('branch_id', branchId)
         .eq('is_active', true)
         .order('name')
       setEmployees(data || [])
     }
     loadEmployees()
-  }, [])
+  }, [branchId])
 
   async function handleNewTransaction(e: React.FormEvent) {
     e.preventDefault()
@@ -120,6 +124,7 @@ export default function TransactionsPage() {
         amount: amt,
         description: newTxn.description.trim() || null,
         is_back_office: newTxn.is_back_office,
+        branch_id: branchId,
       }
 
       if (newTxn.type === 'expense' && newTxn.category) {
@@ -190,6 +195,7 @@ export default function TransactionsPage() {
   }
 
   const fetchTransactions = async () => {
+    if (!branchId) return
     setLoading(true)
     const supabase = createClient()
 
@@ -197,6 +203,7 @@ export default function TransactionsPage() {
       let query = supabase
         .from('transactions')
         .select('*, employee:employees(name)')
+        .eq('branch_id', branchId)
         .gte('date', dateFrom)
         .lte('date', dateTo)
         .order('date', { ascending: false })
@@ -219,7 +226,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     fetchTransactions()
-  }, [dateFrom, dateTo, typeFilter])
+  }, [dateFrom, dateTo, typeFilter, branchId])
 
   function toggleCategory(cat: string) {
     setCategoryFilters(prev => {

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { getDaysInMonth } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { useBranch } from '@/lib/branch-context'
 import { MONTHS, EXPENSE_CATEGORIES } from '@/lib/constants'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
@@ -22,6 +23,7 @@ function formatPercent(value: number): string {
 type MonthZone = 'past' | 'current' | 'future'
 
 export default function IncomeStatementPage() {
+  const { branchId } = useBranch()
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonthIdx = now.getMonth() // 0-indexed
@@ -35,6 +37,7 @@ export default function IncomeStatementPage() {
 
   useEffect(() => {
     async function fetchData() {
+      if (!branchId) return
       setLoading(true)
       const supabase = createClient()
 
@@ -43,9 +46,9 @@ export default function IncomeStatementPage() {
         const yearEnd = `${year}-12-31`
 
         const [txnRes, reRes, partnerRes] = await Promise.all([
-          supabase.from('transactions').select('*').gte('date', yearStart).lte('date', yearEnd),
-          supabase.from('recurring_expenses').select('*').eq('is_active', true),
-          supabase.from('partners').select('*').eq('is_active', true),
+          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', yearStart).lte('date', yearEnd),
+          supabase.from('recurring_expenses').select('*').eq('branch_id', branchId).eq('is_active', true),
+          supabase.from('partners').select('*').eq('branch_id', branchId).eq('is_active', true),
         ])
 
         if (txnRes.error) throw txnRes.error
@@ -64,7 +67,7 @@ export default function IncomeStatementPage() {
     }
 
     fetchData()
-  }, [year])
+  }, [year, branchId])
 
   // Determine zone for each month
   const getMonthZone = (monthIdx: number): MonthZone => {

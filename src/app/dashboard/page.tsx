@@ -48,6 +48,7 @@ import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { PAYMENT_METHODS } from '@/lib/constants'
 import { formatPeso, getToday } from '@/lib/utils'
+import { useBranch } from '@/lib/branch-context'
 import type { Visit, PaymentMethod, Service, Employee } from '@/types/database'
 
 interface PaymentEntry {
@@ -57,6 +58,7 @@ interface PaymentEntry {
 
 export default function DashboardQueuePage() {
   const supabase = createClient()
+  const { branchId } = useBranch()
 
   const [visits, setVisits] = useState<Visit[]>([])
   const [loading, setLoading] = useState(true)
@@ -116,18 +118,21 @@ export default function DashboardQueuePage() {
       if (data) setAllServices(data)
     }
     async function fetchEmployees() {
+      if (!branchId) return
       const { data } = await supabase
         .from('employees')
         .select('*')
         .eq('is_active', true)
+        .eq('branch_id', branchId)
         .order('name', { ascending: true })
       if (data) setAllEmployees(data)
     }
     fetchServices()
     fetchEmployees()
-  }, [])
+  }, [branchId])
 
   const fetchVisits = useCallback(async () => {
+    if (!branchId) return
     const { data, error } = await supabase
       .from('visits')
       .select(
@@ -139,6 +144,7 @@ export default function DashboardQueuePage() {
       `
       )
       .eq('date', selectedDate)
+      .eq('branch_id', branchId)
       .order('created_at', { ascending: true })
 
     if (error) {
@@ -148,7 +154,7 @@ export default function DashboardQueuePage() {
       setVisits(data || [])
     }
     setLoading(false)
-  }, [selectedDate])
+  }, [selectedDate, branchId])
 
   useEffect(() => {
     setLoading(true)
@@ -318,6 +324,7 @@ export default function DashboardQueuePage() {
         customer_id: customerId,
         date: selectedDate,
         status: 'in_progress',
+        branch_id: branchId,
       })
       if (visitErr) throw visitErr
 
@@ -430,6 +437,7 @@ export default function DashboardQueuePage() {
         amount: totalPriceNum,
         visit_id: selectedVisit.id,
         description: `Sale - ${selectedVisit.customer?.first_name} ${selectedVisit.customer?.last_name}`,
+        branch_id: branchId,
       })
       if (txError) throw txError
 

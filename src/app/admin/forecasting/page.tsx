@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { format, getDaysInMonth, differenceInDays, startOfMonth, subDays } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { useBranch } from '@/lib/branch-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +26,7 @@ interface WhatIfItem {
 }
 
 export default function ForecastingPage() {
+  const { branchId } = useBranch()
   const now = new Date()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [completedVisits, setCompletedVisits] = useState<Visit[]>([])
@@ -59,6 +61,7 @@ export default function ForecastingPage() {
 
   useEffect(() => {
     async function fetchData() {
+      if (!branchId) return
       setLoading(true)
       const supabase = createClient()
       const monthEnd = `${monthStr}-${String(totalDaysInMonth).padStart(2, '0')}`
@@ -67,11 +70,11 @@ export default function ForecastingPage() {
         const thirtyDaysAgo = format(subDays(now, 30), 'yyyy-MM-dd')
 
         const [txnRes, reRes, partnerRes, visitsRes, last30Res] = await Promise.all([
-          supabase.from('transactions').select('*').gte('date', monthStart).lte('date', monthEnd),
-          supabase.from('recurring_expenses').select('*').eq('is_active', true),
-          supabase.from('partners').select('*').eq('is_active', true),
-          supabase.from('visits').select('*').gte('date', monthStart).lte('date', monthEnd).eq('status', 'completed'),
-          supabase.from('visits').select('id, total_amount').gte('date', thirtyDaysAgo).eq('status', 'completed'),
+          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd),
+          supabase.from('recurring_expenses').select('*').eq('branch_id', branchId).eq('is_active', true),
+          supabase.from('partners').select('*').eq('branch_id', branchId).eq('is_active', true),
+          supabase.from('visits').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd).eq('status', 'completed'),
+          supabase.from('visits').select('id, total_amount').eq('branch_id', branchId).gte('date', thirtyDaysAgo).eq('status', 'completed'),
         ])
 
         if (txnRes.error) throw txnRes.error
@@ -119,7 +122,7 @@ export default function ForecastingPage() {
     }
 
     fetchData()
-  }, [])
+  }, [branchId])
 
   // Current month actuals
   const actuals = useMemo(() => {
