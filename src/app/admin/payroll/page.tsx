@@ -181,10 +181,11 @@ export default function PayrollPage() {
         .filter(v => v.stylist_employee_id && externalEmployeeIds.has(v.stylist_employee_id))
         .reduce((s, v) => s + (v.total_amount ?? 0), 0)
 
-      // Only employees marked present get commissions for this day
-      const presentEmployees = activeEmployees.filter(
-        emp => attendanceMap.get(`${emp.id}_${date}`) === 'present'
-      )
+      // Employees marked present or day_off get commissions; only absent is excluded
+      const presentEmployees = activeEmployees.filter(emp => {
+        const status = attendanceMap.get(`${emp.id}_${date}`)
+        return status === 'present' || status === 'day_off'
+      })
       const dayScPoolSize = presentEmployees.filter(e => e.is_in_service_charge_pool).length
 
       presentEmployees.forEach(emp => {
