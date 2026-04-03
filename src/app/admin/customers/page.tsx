@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useBranch } from '@/lib/branch-context'
 import { format, differenceInMinutes } from 'date-fns'
 import { Search, ChevronDown, ChevronUp, Trash2, Copy } from 'lucide-react'
 import { copyTableToClipboard, formatPeso } from '@/lib/utils'
@@ -32,7 +31,6 @@ interface VisitDetail extends Visit {
 
 
 export default function CustomersPage() {
-  const { branchId } = useBranch()
   const [customers, setCustomers] = useState<CustomerWithVisitCount[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -44,7 +42,6 @@ export default function CustomersPage() {
   const [deleting, setDeleting] = useState(false)
 
   const fetchCustomers = async () => {
-    if (!branchId) return
     setLoading(true)
     const supabase = createClient()
 
@@ -59,7 +56,6 @@ export default function CustomersPage() {
       const { data: visitCounts, error: visitError } = await supabase
         .from('visits')
         .select('customer_id')
-        .eq('branch_id', branchId)
 
       if (visitError) throw visitError
 
@@ -84,7 +80,7 @@ export default function CustomersPage() {
 
   useEffect(() => {
     fetchCustomers()
-  }, [branchId])
+  }, [])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return customers
@@ -107,17 +103,11 @@ export default function CustomersPage() {
 
     try {
       const supabase = createClient()
-      let query = supabase
+      const { data, error } = await supabase
         .from('visits')
         .select('*, visit_services(*, service:services(*))')
         .eq('customer_id', customerId)
         .order('date', { ascending: false })
-
-      if (branchId) {
-        query = query.eq('branch_id', branchId)
-      }
-
-      const { data, error } = await query
 
       if (error) throw error
       setVisitDetails((data as VisitDetail[]) ?? [])

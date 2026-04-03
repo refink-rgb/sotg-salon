@@ -14,13 +14,11 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useBranch } from '@/lib/branch-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPeso, getToday } from '@/lib/utils'
 
 export default function AdminDashboard() {
   const supabase = createClient()
-  const { branchId } = useBranch()
 
   const [todaySales, setTodaySales] = useState(0)
   const [monthSales, setMonthSales] = useState(0)
@@ -30,7 +28,6 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!branchId) return
       const today = getToday()
       const monthStart = format(new Date(), 'yyyy-MM-01')
 
@@ -39,7 +36,6 @@ export default function AdminDashboard() {
         const { data: todayTxns } = await supabase
           .from('transactions')
           .select('amount')
-          .eq('branch_id', branchId)
           .eq('type', 'sale')
           .eq('date', today)
 
@@ -51,7 +47,6 @@ export default function AdminDashboard() {
         const { data: monthSaleTxns } = await supabase
           .from('transactions')
           .select('amount')
-          .eq('branch_id', branchId)
           .eq('type', 'sale')
           .gte('date', monthStart)
 
@@ -63,7 +58,6 @@ export default function AdminDashboard() {
         const { data: monthExpTxns } = await supabase
           .from('transactions')
           .select('amount')
-          .eq('branch_id', branchId)
           .in('type', ['expense', 'salary', 'commission'])
           .gte('date', monthStart)
 
@@ -75,7 +69,6 @@ export default function AdminDashboard() {
         const { count } = await supabase
           .from('visits')
           .select('id', { count: 'exact', head: true })
-          .eq('branch_id', branchId)
           .eq('status', 'completed')
           .gte('date', monthStart)
 
@@ -89,7 +82,7 @@ export default function AdminDashboard() {
     }
 
     fetchData()
-  }, [branchId])
+  }, [])
 
   const quickLinks = [
     { href: '/admin/income-statement', label: 'Income Statement', icon: FileText, desc: 'Monthly P&L view' },

@@ -19,7 +19,6 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { BranchProvider } from '@/lib/branch-context'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -134,7 +133,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          <BranchProvider>{children}</BranchProvider>
+          {children}
         </main>
       </div>
     </div>

@@ -5,7 +5,6 @@ import { format, eachDayOfInterval, startOfMonth, endOfMonth, getDaysInMonth, is
 import { CreditCard, Loader2, Plus, Copy } from 'lucide-react'
 import { copyTableToClipboard, formatPeso, getToday } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { useBranch } from '@/lib/branch-context'
 import { MONTHS } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,7 +19,6 @@ import type { Transaction } from '@/types/database'
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function CashFlowPage() {
-  const { branchId } = useBranch()
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth())
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
@@ -37,7 +35,6 @@ export default function CashFlowPage() {
   const [wdBackOffice, setWdBackOffice] = useState(false)
 
   const fetchData = async () => {
-    if (!branchId) return
     setLoading(true)
     const supabase = createClient()
     const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`
@@ -49,7 +46,6 @@ export default function CashFlowPage() {
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
-        .eq('branch_id', branchId)
         .gte('date', monthStart)
         .lte('date', monthEnd)
         .order('date')
@@ -66,23 +62,21 @@ export default function CashFlowPage() {
 
   useEffect(() => {
     fetchData()
-  }, [selectedMonth, selectedYear, branchId])
+  }, [selectedMonth, selectedYear])
 
-  // Fetch partners
+  // Fetch partners once on mount
   useEffect(() => {
     async function loadPartners() {
-      if (!branchId) return
       const supabase = createClient()
       const { data } = await supabase
         .from('partners')
         .select('id, name')
-        .eq('branch_id', branchId)
         .eq('is_active', true)
         .order('name')
       setPartners(data || [])
     }
     loadPartners()
-  }, [branchId])
+  }, [])
 
   async function handleWithdrawal(e: React.FormEvent) {
     e.preventDefault()
@@ -103,7 +97,6 @@ export default function CashFlowPage() {
         category: 'owner_draw',
         description: wdNote.trim() || `Owner withdrawal - ${partnerName}`,
         is_back_office: wdBackOffice,
-        branch_id: branchId,
       })
       if (error) throw error
 

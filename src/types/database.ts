@@ -1,19 +1,9 @@
-export type UserRole = 'stylist' | 'admin' | 'owner'
-
-export interface Branch {
-  id: string
-  name: string
-  slug: string
-  address: string | null
-  is_active: boolean
-  created_at: string
-}
+export type UserRole = 'stylist' | 'admin'
 
 export interface Profile {
   id: string
   display_name: string
   role: UserRole
-  branch_id: string | null
   created_at: string
 }
 
@@ -39,7 +29,6 @@ export type VisitStatus = 'in_progress' | 'completed'
 export interface Visit {
   id: string
   customer_id: string
-  branch_id: string | null
   date: string
   status: VisitStatus
   total_amount: number | null
@@ -76,7 +65,6 @@ export type TransactionType = 'sale' | 'expense' | 'salary' | 'commission' | 'wi
 
 export interface Transaction {
   id: string
-  branch_id: string | null
   date: string
   type: TransactionType
   amount: number
@@ -94,7 +82,6 @@ export type ExpenseCategory = 'rent' | 'electric' | 'water' | 'wifi' | 'food' | 
 
 export interface RecurringExpense {
   id: string
-  branch_id: string | null
   name: string
   category: ExpenseCategory
   default_amount: number
@@ -103,7 +90,6 @@ export interface RecurringExpense {
 
 export interface Employee {
   id: string
-  branch_id: string | null
   name: string
   daily_rate: number
   monthly_salary: number
@@ -119,7 +105,6 @@ export type AttendanceStatus = 'present' | 'absent' | 'day_off'
 
 export interface DailyAttendance {
   id: string
-  branch_id: string | null
   employee_id: string
   date: string
   status: AttendanceStatus
@@ -147,7 +132,6 @@ export interface PayrollRecord {
 
 export interface Partner {
   id: string
-  branch_id: string | null
   name: string
   split_percentage: number
   is_active: boolean
