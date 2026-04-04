@@ -58,7 +58,7 @@ interface PaymentEntry {
 
 export default function DashboardQueuePage() {
   const supabase = createClient()
-  const { branchId } = useBranch()
+  const { branchId, userRole } = useBranch()
 
   const [visits, setVisits] = useState<Visit[]>([])
   const [loading, setLoading] = useState(true)
@@ -672,12 +672,14 @@ export default function DashboardQueuePage() {
       {/* Summary Bar */}
       <div className="sticky top-14 z-30 bg-[#40916C] px-4 py-3 text-white">
         <div className="mx-auto flex max-w-4xl items-center justify-around text-center">
+          {userRole !== 'stylist' && (
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-white/70">
               Total Sales
             </p>
             <p className="text-lg font-bold">{formatPeso(totalSales)}</p>
           </div>
+          )}
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-white/70">
               In Progress

@@ -10,11 +10,11 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { BranchProvider, useBranch } from '@/lib/branch-context'
 
-const navLinks = [
-  { href: '/dashboard', label: 'Queue', icon: ClipboardList },
-  { href: '/dashboard/expenses', label: 'Expenses', icon: Receipt },
-  { href: '/dashboard/summary', label: 'Summary', icon: BarChart3 },
-  { href: '/dashboard/attendance', label: 'Attendance', icon: Users },
+const allNavLinks = [
+  { href: '/dashboard', label: 'Queue', icon: ClipboardList, stylistVisible: true },
+  { href: '/dashboard/expenses', label: 'Expenses', icon: Receipt, stylistVisible: false },
+  { href: '/dashboard/summary', label: 'Summary', icon: BarChart3, stylistVisible: false },
+  { href: '/dashboard/attendance', label: 'Attendance', icon: Users, stylistVisible: false },
 ]
 
 export default function DashboardLayout({
@@ -65,7 +65,7 @@ export default function DashboardLayout({
 
           {/* Nav Links */}
           <nav className="flex items-center gap-1">
-            {navLinks.map((link) => {
+            {allNavLinks.filter(link => userRole !== 'stylist' || link.stylistVisible).map((link) => {
               const isActive =
                 link.href === '/dashboard'
                   ? pathname === '/dashboard'

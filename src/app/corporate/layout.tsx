@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   Building2,
+  Users,
   ArrowLeft,
   LogOut,
   Menu,
@@ -24,6 +25,7 @@ import {
 const navLinks = [
   { href: '/corporate', label: 'Overview', icon: LayoutDashboard },
   { href: '/corporate/branches', label: 'Branches', icon: Building2 },
+  { href: '/corporate/users', label: 'Users', icon: Users },
 ]
 
 function SidebarContent({ pathname, onLogout, onNavigate }: { pathname: string; onLogout: () => void; onNavigate?: () => void }) {

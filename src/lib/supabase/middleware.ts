@@ -41,6 +41,22 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Stylist-restricted dashboard routes — stylists can only see /dashboard (queue)
+  const stylistBlockedPaths = ['/dashboard/expenses', '/dashboard/summary', '/dashboard/attendance']
+  if (stylistBlockedPaths.some(p => path.startsWith(p))) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role === 'stylist') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+  }
+
   // Admin routes - check role (admin OR owner)
   if (path.startsWith('/admin')) {
     const { data: profile } = await supabase
