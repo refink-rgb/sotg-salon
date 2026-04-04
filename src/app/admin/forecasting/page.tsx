@@ -70,11 +70,11 @@ export default function ForecastingPage() {
         const thirtyDaysAgo = format(subDays(now, 30), 'yyyy-MM-dd')
 
         const [txnRes, reRes, partnerRes, visitsRes, last30Res] = await Promise.all([
-          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd),
+          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd).limit(10000),
           supabase.from('recurring_expenses').select('*').eq('branch_id', branchId).eq('is_active', true),
           supabase.from('partners').select('*').eq('branch_id', branchId).eq('is_active', true),
-          supabase.from('visits').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd).eq('status', 'completed'),
-          supabase.from('visits').select('id, total_amount').eq('branch_id', branchId).gte('date', thirtyDaysAgo).eq('status', 'completed'),
+          supabase.from('visits').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd).eq('status', 'completed').limit(10000),
+          supabase.from('visits').select('id, total_amount').eq('branch_id', branchId).gte('date', thirtyDaysAgo).eq('status', 'completed').limit(10000),
         ])
 
         if (txnRes.error) throw txnRes.error

@@ -40,8 +40,8 @@ export default function CorporateOverviewPage() {
         const [salesRes, custRes, monthSalesRes, monthExpRes, recurringRes] = await Promise.all([
           supabase.from('transactions').select('amount').eq('branch_id', branch.id).eq('date', today).eq('type', 'sale'),
           supabase.from('visits').select('id', { count: 'exact', head: true }).eq('branch_id', branch.id).eq('date', today).eq('status', 'completed'),
-          supabase.from('transactions').select('amount').eq('branch_id', branch.id).gte('date', monthStart).eq('type', 'sale'),
-          supabase.from('transactions').select('amount').eq('branch_id', branch.id).gte('date', monthStart).in('type', ['expense', 'salary', 'commission']),
+          supabase.from('transactions').select('amount').eq('branch_id', branch.id).gte('date', monthStart).eq('type', 'sale').limit(10000),
+          supabase.from('transactions').select('amount').eq('branch_id', branch.id).gte('date', monthStart).in('type', ['expense', 'salary', 'commission']).limit(10000),
           supabase.from('recurring_expenses').select('default_amount').eq('branch_id', branch.id).eq('is_active', true),
         ])
 

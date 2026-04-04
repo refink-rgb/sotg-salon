@@ -53,6 +53,7 @@ export default function CashFlowPage() {
         .gte('date', monthStart)
         .lte('date', monthEnd)
         .order('date')
+        .limit(10000)
 
       if (error) throw error
       setTransactions(data ?? [])

@@ -207,6 +207,7 @@ export default function TransactionsPage() {
         .gte('date', dateFrom)
         .lte('date', dateTo)
         .order('date', { ascending: false })
+        .limit(10000)
 
       if (typeFilter !== 'all') {
         query = query.eq('type', typeFilter)

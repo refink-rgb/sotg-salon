@@ -96,9 +96,9 @@ export default function PayrollPage() {
       try {
         const [empRes, attRes, txnRes, visitRes, settingsRes] = await Promise.all([
           supabase.from('employees').select('*').eq('branch_id', branchId).order('name'),
-          supabase.from('daily_attendance').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd),
-          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd),
-          supabase.from('visits').select('*').eq('branch_id', branchId).eq('status', 'completed').gte('date', monthStart).lte('date', monthEnd),
+          supabase.from('daily_attendance').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd).limit(5000),
+          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd).limit(10000),
+          supabase.from('visits').select('*').eq('branch_id', branchId).eq('status', 'completed').gte('date', monthStart).lte('date', monthEnd).limit(10000),
           supabase.from('app_settings').select('*'),
         ])
 

@@ -46,7 +46,7 @@ export default function IncomeStatementPage() {
         const yearEnd = `${year}-12-31`
 
         const [txnRes, reRes, partnerRes] = await Promise.all([
-          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', yearStart).lte('date', yearEnd),
+          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', yearStart).lte('date', yearEnd).limit(10000),
           supabase.from('recurring_expenses').select('*').eq('branch_id', branchId).eq('is_active', true),
           supabase.from('partners').select('*').eq('branch_id', branchId).eq('is_active', true),
         ])
