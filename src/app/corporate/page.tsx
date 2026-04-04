@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import { useBranch } from '@/lib/branch-context'
 import { formatPeso, getToday } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,7 +23,8 @@ interface BranchStats {
 
 export default function CorporateOverviewPage() {
   const supabase = createClient()
-  const { branches, loading: branchLoading } = useBranch()
+  const router = useRouter()
+  const { branches, loading: branchLoading, switchBranch } = useBranch()
   const [stats, setStats] = useState<BranchStats[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -126,14 +128,21 @@ export default function CorporateOverviewPage() {
       <h2 className="text-lg font-semibold text-gray-900">Branches</h2>
       <div className="grid gap-4 md:grid-cols-2">
         {stats.map(({ branch, todaySales, todayCustomers, monthSales, monthExpenses, projectedExpenses, estimatedNet }) => (
-          <Card key={branch.id} className="hover:shadow-md transition-shadow">
+          <Card
+            key={branch.id}
+            className="hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => { switchBranch(branch.id); router.push('/admin') }}
+          >
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Building2 className="size-4 text-amber-600" />
                   {branch.name}
                 </CardTitle>
-                <Badge variant="outline" className="text-xs">{branch.slug}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">{branch.slug}</Badge>
+                  <span className="text-xs text-gray-400">View Admin &rarr;</span>
+                </div>
               </div>
               {branch.address && <p className="text-xs text-gray-400">{branch.address}</p>}
             </CardHeader>
