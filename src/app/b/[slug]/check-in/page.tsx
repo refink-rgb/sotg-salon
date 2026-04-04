@@ -1,0 +1,239 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { getToday } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import type { Service, Branch } from '@/types/database'
+
+export default function BranchCheckInPage() {
+  const router = useRouter()
+  const params = useParams()
+  const slug = params.slug as string
+  const supabase = createClient()
+
+  const [branch, setBranch] = useState<Branch | null>(null)
+  const [branchLoading, setBranchLoading] = useState(true)
+  const [branchNotFound, setBranchNotFound] = useState(false)
+
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [city, setCity] = useState('')
+  const [isFirstTime, setIsFirstTime] = useState(true)
+  const [services, setServices] = useState<Service[]>([])
+  const [selectedServices, setSelectedServices] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [loadingServices, setLoadingServices] = useState(true)
+
+  // Load branch by slug
+  useEffect(() => {
+    async function fetchBranch() {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('slug', slug)
+        .eq('is_active', true)
+        .single()
+
+      if (error || !data) {
+        setBranchNotFound(true)
+      } else {
+        setBranch(data)
+        setCity(data.name) // Default city to branch name
+      }
+      setBranchLoading(false)
+    }
+    fetchBranch()
+  }, [slug])
+
+  // Load services (global)
+  useEffect(() => {
+    async function fetchServices() {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order')
+
+      if (error) {
+        toast.error('Failed to load services')
+      } else {
+        setServices(data || [])
+      }
+      setLoadingServices(false)
+    }
+    fetchServices()
+  }, [])
+
+  function toggleService(serviceId: string) {
+    setSelectedServices((prev) =>
+      prev.includes(serviceId)
+        ? prev.filter((id) => id !== serviceId)
+        : [...prev, serviceId]
+    )
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!branch) return
+
+    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !city.trim()) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    const cleanPhone = phone.trim().replace(/\s/g, '')
+    if (!cleanPhone.startsWith('09') || cleanPhone.length !== 11) {
+      toast.error('Phone number must start with 09 and be exactly 11 digits')
+      return
+    }
+
+    if (selectedServices.length === 0) {
+      toast.error('Please select at least one service')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const customerId = crypto.randomUUID()
+      const visitId = crypto.randomUUID()
+      const today = getToday()
+
+      const { error: customerError } = await supabase
+        .from('customers')
+        .insert({
+          id: customerId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phone.trim(),
+          city: city.trim(),
+          is_returning: !isFirstTime,
+        })
+      if (customerError) throw customerError
+
+      const { error: visitError } = await supabase
+        .from('visits')
+        .insert({
+          id: visitId,
+          customer_id: customerId,
+          date: today,
+          status: 'in_progress',
+          branch_id: branch.id,
+        })
+      if (visitError) throw visitError
+
+      const visitServices = selectedServices.map((serviceId) => ({
+        visit_id: visitId,
+        service_id: serviceId,
+        price: null,
+      }))
+      const { error: vsError } = await supabase.from('visit_services').insert(visitServices)
+      if (vsError) throw vsError
+
+      router.push(`/b/${slug}/check-in/success`)
+    } catch (error) {
+      console.error(error)
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (branchLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-[#40916C]" />
+      </div>
+    )
+  }
+
+  if (branchNotFound) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center text-center px-4">
+        <h1 className="text-2xl font-bold text-gray-900">Branch Not Found</h1>
+        <p className="mt-2 text-gray-500">The salon branch "{slug}" does not exist.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="bg-[#1B4332] px-4 py-6 text-center">
+        <img src="/logo-192.png" alt="Salon On The Go" className="h-20 w-20 mx-auto rounded-full" />
+        <h1 className="mt-3 text-2xl font-bold text-white">Salon On The Go</h1>
+        <p className="mt-1 text-sm text-green-200">{branch!.name}</p>
+        <p className="mt-0.5 text-xs text-green-300/70">Welcome! Please check in below.</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-5 px-4 py-6">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="firstName">First Name *</Label>
+            <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Juan" required className="h-10" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="lastName">Last Name *</Label>
+            <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Dela Cruz" required className="h-10" />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="phone">Phone Number *</Label>
+          <Input
+            id="phone" type="tel" value={phone}
+            onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); if (val.length <= 11) setPhone(val) }}
+            placeholder="09171234567" required maxLength={11} pattern="09[0-9]{9}" className="h-10"
+          />
+          <p className="text-[11px] text-gray-400 mt-0.5">Must start with 09 (11 digits)</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="city">City *</Label>
+          <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} required className="h-10" />
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <Checkbox id="firstTime" checked={isFirstTime} onCheckedChange={(checked) => setIsFirstTime(checked === true)} />
+          <Label htmlFor="firstTime" className="text-sm font-normal cursor-pointer">First time visiting?</Label>
+        </div>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Select Services *</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingServices ? (
+              <div className="flex items-center justify-center py-4"><Loader2 className="size-5 animate-spin text-[#40916C]" /></div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {services.map((service) => (
+                  <label key={service.id} className={`flex cursor-pointer items-center gap-2.5 rounded-lg border p-3 transition-colors ${selectedServices.includes(service.id) ? 'border-[#40916C] bg-[#40916C]/10' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <Checkbox checked={selectedServices.includes(service.id)} onCheckedChange={() => toggleService(service.id)} />
+                    <span className="text-sm font-medium">{service.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Button type="submit" disabled={loading} className="h-12 w-full bg-[#1B4332] text-base font-semibold text-white hover:bg-[#1B4332]/90">
+          {loading ? (<><Loader2 className="size-5 animate-spin" /> Checking in...</>) : 'Check In'}
+        </Button>
+      </form>
+
+      <div className="fixed bottom-4 right-4">
+        <a href="/login" className="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors">Staff Login</a>
+      </div>
+    </div>
+  )
+}

@@ -13,12 +13,14 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { toast } from 'sonner'
+import { useBranch } from '@/lib/branch-context'
 import type { Transaction } from '@/types/database'
 
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function CashFlowPage() {
+  const { branchId } = useBranch()
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth())
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
@@ -35,6 +37,7 @@ export default function CashFlowPage() {
   const [wdBackOffice, setWdBackOffice] = useState(false)
 
   const fetchData = async () => {
+    if (!branchId) return
     setLoading(true)
     const supabase = createClient()
     const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`
@@ -46,6 +49,7 @@ export default function CashFlowPage() {
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
+        .eq('branch_id', branchId)
         .gte('date', monthStart)
         .lte('date', monthEnd)
         .order('date')
@@ -62,21 +66,23 @@ export default function CashFlowPage() {
 
   useEffect(() => {
     fetchData()
-  }, [selectedMonth, selectedYear])
+  }, [selectedMonth, selectedYear, branchId])
 
-  // Fetch partners once on mount
+  // Fetch partners once on mount / branch change
   useEffect(() => {
     async function loadPartners() {
+      if (!branchId) return
       const supabase = createClient()
       const { data } = await supabase
         .from('partners')
         .select('id, name')
+        .eq('branch_id', branchId)
         .eq('is_active', true)
         .order('name')
       setPartners(data || [])
     }
     loadPartners()
-  }, [])
+  }, [branchId])
 
   async function handleWithdrawal(e: React.FormEvent) {
     e.preventDefault()
@@ -97,6 +103,7 @@ export default function CashFlowPage() {
         category: 'owner_draw',
         description: wdNote.trim() || `Owner withdrawal - ${partnerName}`,
         is_back_office: wdBackOffice,
+        branch_id: branchId,
       })
       if (error) throw error
 

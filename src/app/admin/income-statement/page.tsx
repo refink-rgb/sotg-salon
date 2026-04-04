@@ -12,6 +12,7 @@ import { Copy } from 'lucide-react'
 import { copyTableToClipboard, formatPeso } from '@/lib/utils'
 import type { Transaction, RecurringExpense, Partner } from '@/types/database'
 import { toast } from 'sonner'
+import { useBranch } from '@/lib/branch-context'
 
 
 function formatPercent(value: number): string {
@@ -22,6 +23,7 @@ function formatPercent(value: number): string {
 type MonthZone = 'past' | 'current' | 'future'
 
 export default function IncomeStatementPage() {
+  const { branchId } = useBranch()
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonthIdx = now.getMonth() // 0-indexed
@@ -35,6 +37,7 @@ export default function IncomeStatementPage() {
 
   useEffect(() => {
     async function fetchData() {
+      if (!branchId) return
       setLoading(true)
       const supabase = createClient()
 
@@ -43,9 +46,9 @@ export default function IncomeStatementPage() {
         const yearEnd = `${year}-12-31`
 
         const [txnRes, reRes, partnerRes] = await Promise.all([
-          supabase.from('transactions').select('*').gte('date', yearStart).lte('date', yearEnd),
-          supabase.from('recurring_expenses').select('*').eq('is_active', true),
-          supabase.from('partners').select('*').eq('is_active', true),
+          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', yearStart).lte('date', yearEnd),
+          supabase.from('recurring_expenses').select('*').eq('branch_id', branchId).eq('is_active', true),
+          supabase.from('partners').select('*').eq('branch_id', branchId).eq('is_active', true),
         ])
 
         if (txnRes.error) throw txnRes.error
@@ -64,7 +67,7 @@ export default function IncomeStatementPage() {
     }
 
     fetchData()
-  }, [year])
+  }, [year, branchId])
 
   // Determine zone for each month
   const getMonthZone = (monthIdx: number): MonthZone => {

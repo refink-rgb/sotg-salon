@@ -27,6 +27,7 @@ import { copyTableToClipboard, formatPeso, getToday } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Employee, DailyAttendance, Transaction, Visit } from '@/types/database'
 import type { CommissionResult } from '@/lib/commission'
+import { useBranch } from '@/lib/branch-context'
 
 
 interface PayrollRow extends CommissionResult {
@@ -35,6 +36,7 @@ interface PayrollRow extends CommissionResult {
 }
 
 export default function PayrollPage() {
+  const { branchId } = useBranch()
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth())
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
@@ -83,6 +85,7 @@ export default function PayrollPage() {
 
   useEffect(() => {
     async function fetchData() {
+      if (!branchId) return
       setLoading(true)
       const supabase = createClient()
       const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`
@@ -92,10 +95,10 @@ export default function PayrollPage() {
 
       try {
         const [empRes, attRes, txnRes, visitRes, settingsRes] = await Promise.all([
-          supabase.from('employees').select('*').order('name'),
-          supabase.from('daily_attendance').select('*').gte('date', monthStart).lte('date', monthEnd),
-          supabase.from('transactions').select('*').gte('date', monthStart).lte('date', monthEnd),
-          supabase.from('visits').select('*').eq('status', 'completed').gte('date', monthStart).lte('date', monthEnd),
+          supabase.from('employees').select('*').eq('branch_id', branchId).order('name'),
+          supabase.from('daily_attendance').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd),
+          supabase.from('transactions').select('*').eq('branch_id', branchId).gte('date', monthStart).lte('date', monthEnd),
+          supabase.from('visits').select('*').eq('branch_id', branchId).eq('status', 'completed').gte('date', monthStart).lte('date', monthEnd),
           supabase.from('app_settings').select('*'),
         ])
 
@@ -125,7 +128,7 @@ export default function PayrollPage() {
     }
 
     fetchData()
-  }, [selectedMonth, selectedYear])
+  }, [selectedMonth, selectedYear, branchId])
 
   // Compute payroll — day-by-day so absent employees are excluded from that day's commissions
   const payrollData = useMemo(() => {
@@ -276,6 +279,7 @@ export default function PayrollPage() {
         is_in_service_charge_pool: newEmp.is_in_service_charge_pool,
         is_internal: newEmp.is_internal,
         is_active: true,
+        branch_id: branchId,
       })
       if (error) throw error
       toast.success('Employee added')
@@ -380,6 +384,7 @@ export default function PayrollPage() {
         description: `Payroll payout for ${MONTHS[selectedMonth]} ${selectedYear}`,
         employee_id: empResult.employeeId,
         payment_method: 'cash',
+        branch_id: branchId,
       })
       if (error) throw error
       toast.success(`Paid ${formatPeso(empResult.remaining)} to ${empResult.employeeName}`)

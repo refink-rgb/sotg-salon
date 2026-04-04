@@ -1,9 +1,19 @@
-export type UserRole = 'stylist' | 'admin'
+export type UserRole = 'stylist' | 'admin' | 'owner'
+
+export interface Branch {
+  id: string
+  name: string
+  slug: string
+  address: string | null
+  is_active: boolean
+  created_at: string
+}
 
 export interface Profile {
   id: string
   display_name: string
   role: UserRole
+  branch_id: string | null
   created_at: string
 }
 
@@ -98,6 +108,7 @@ export interface Employee {
   is_internal: boolean
   is_in_service_charge_pool: boolean
   is_active: boolean
+  branch_id: string | null
   created_at: string
 }
 

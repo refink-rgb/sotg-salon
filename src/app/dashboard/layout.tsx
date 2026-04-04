@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { LogOut, ClipboardList, Receipt, Users, Settings, BarChart3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { BranchProvider, useBranch } from '@/lib/branch-context'
 
 const navLinks = [
   { href: '/dashboard', label: 'Queue', icon: ClipboardList },
@@ -24,7 +25,7 @@ export default function DashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect(() => {
     async function checkRole() {
@@ -35,7 +36,7 @@ export default function DashboardLayout({
           .select('role')
           .eq('id', user.id)
           .single()
-        setIsAdmin(profile?.role === 'admin')
+        setUserRole(profile?.role || null)
       }
     }
     checkRole()
@@ -51,6 +52,7 @@ export default function DashboardLayout({
   }
 
   return (
+    <BranchProvider>
     <div className="flex min-h-screen flex-col bg-gray-50">
       {/* Top Navigation */}
       <header className="sticky top-0 z-40 border-b bg-[#1B4332] text-white">
@@ -88,13 +90,22 @@ export default function DashboardLayout({
 
           {/* Admin Link + Logout */}
           <div className="flex items-center gap-1">
-          {isAdmin && (
+          {(userRole === 'admin' || userRole === 'owner') && (
             <Link
               href="/admin"
               className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors"
             >
               <Settings className="size-4" />
               <span className="hidden sm:inline">Admin</span>
+            </Link>
+          )}
+          {userRole === 'owner' && (
+            <Link
+              href="/corporate"
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-amber-300/90 hover:bg-white/10 hover:text-amber-200 transition-colors"
+            >
+              <BarChart3 className="size-4" />
+              <span className="hidden sm:inline">Corporate</span>
             </Link>
           )}
           <Button
@@ -113,5 +124,6 @@ export default function DashboardLayout({
       {/* Main Content */}
       <main className="flex-1">{children}</main>
     </div>
+    </BranchProvider>
   )
 }

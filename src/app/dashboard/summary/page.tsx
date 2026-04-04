@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { useBranch } from '@/lib/branch-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -30,6 +31,7 @@ import type { Transaction } from '@/types/database'
 
 export default function SummaryPage() {
   const supabase = createClient()
+  const { branchId } = useBranch()
   const today = getToday()
   const todayDisplay = format(new Date(), 'EEEE, MMMM d, yyyy')
 
@@ -45,6 +47,7 @@ export default function SummaryPage() {
   const [actualCash, setActualCash] = useState('')
 
   const fetchData = useCallback(async () => {
+    if (!branchId) return
     setLoading(true)
     const [txRes, payRes, visitCountRes, inProgressRes, attendanceRes, activeEmpRes] = await Promise.all([
       supabase
@@ -52,19 +55,22 @@ export default function SummaryPage() {
         .select('*')
         .eq('date', today)
         .eq('is_back_office', false)
+        .eq('branch_id', branchId)
         .order('created_at', { ascending: false }),
       supabase
         .from('visit_payments')
-        .select('method, amount, visit:visits!inner(date)')
-        .eq('visit.date', today),
+        .select('method, amount, visit:visits!inner(date, branch_id)')
+        .eq('visit.date', today)
+        .eq('visit.branch_id', branchId),
       supabase
         .from('visits')
         .select('id', { count: 'exact', head: true })
         .eq('date', today)
-        .eq('status', 'completed'),
-      supabase.from('visits').select('id', { count: 'exact', head: true }).eq('date', today).eq('status', 'in_progress'),
-      supabase.from('daily_attendance').select('id', { count: 'exact', head: true }).eq('date', today),
-      supabase.from('employees').select('id', { count: 'exact', head: true }).eq('is_active', true),
+        .eq('status', 'completed')
+        .eq('branch_id', branchId),
+      supabase.from('visits').select('id', { count: 'exact', head: true }).eq('date', today).eq('status', 'in_progress').eq('branch_id', branchId),
+      supabase.from('daily_attendance').select('id', { count: 'exact', head: true }).eq('date', today).eq('branch_id', branchId),
+      supabase.from('employees').select('id', { count: 'exact', head: true }).eq('is_active', true).eq('branch_id', branchId),
     ])
 
     const allTxns = (txRes.data || []) as Transaction[]
@@ -83,7 +89,7 @@ export default function SummaryPage() {
     setAttendanceCount(attendanceRes.count ?? 0)
     setActiveEmployeeCount(activeEmpRes.count ?? 0)
     setLoading(false)
-  }, [today])
+  }, [today, branchId])
 
   useEffect(() => {
     fetchData()

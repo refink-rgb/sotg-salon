@@ -19,6 +19,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { useBranch } from '@/lib/branch-context'
 import type { Customer, Visit, VisitService, Service } from '@/types/database'
 
 interface CustomerWithVisitCount extends Customer {
@@ -31,6 +32,7 @@ interface VisitDetail extends Visit {
 
 
 export default function CustomersPage() {
+  const { branchId } = useBranch()
   const [customers, setCustomers] = useState<CustomerWithVisitCount[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -42,10 +44,12 @@ export default function CustomersPage() {
   const [deleting, setDeleting] = useState(false)
 
   const fetchCustomers = async () => {
+    if (!branchId) return
     setLoading(true)
     const supabase = createClient()
 
     try {
+      // Customers are GLOBAL - do NOT filter by branch
       const { data: customerData, error: customerError } = await supabase
         .from('customers')
         .select('*')
@@ -53,9 +57,11 @@ export default function CustomersPage() {
 
       if (customerError) throw customerError
 
+      // Visit counts ARE branch-scoped
       const { data: visitCounts, error: visitError } = await supabase
         .from('visits')
         .select('customer_id')
+        .eq('branch_id', branchId)
 
       if (visitError) throw visitError
 
@@ -80,7 +86,7 @@ export default function CustomersPage() {
 
   useEffect(() => {
     fetchCustomers()
-  }, [])
+  }, [branchId])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return customers
@@ -106,6 +112,7 @@ export default function CustomersPage() {
       const { data, error } = await supabase
         .from('visits')
         .select('*, visit_services(*, service:services(*))')
+        .eq('branch_id', branchId)
         .eq('customer_id', customerId)
         .order('date', { ascending: false })
 
