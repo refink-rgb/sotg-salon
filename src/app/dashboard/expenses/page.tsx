@@ -39,7 +39,7 @@ import type { Transaction, Employee } from '@/types/database'
 
 export default function ExpensesPage() {
   const supabase = createClient()
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
   const today = getToday()
 
   const [transactions, setTransactions] = useState<Transaction[]>([])

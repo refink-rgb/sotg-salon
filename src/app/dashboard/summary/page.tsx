@@ -31,7 +31,7 @@ import type { Transaction } from '@/types/database'
 
 export default function SummaryPage() {
   const supabase = createClient()
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
   const today = getToday()
   const todayDisplay = format(new Date(), 'EEEE, MMMM d, yyyy')
 

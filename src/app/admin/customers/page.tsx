@@ -32,7 +32,7 @@ interface VisitDetail extends Visit {
 
 
 export default function CustomersPage() {
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
   const [customers, setCustomers] = useState<CustomerWithVisitCount[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

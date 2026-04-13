@@ -23,7 +23,7 @@ function formatPercent(value: number): string {
 type MonthZone = 'past' | 'current' | 'future'
 
 export default function IncomeStatementPage() {
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonthIdx = now.getMonth() // 0-indexed

@@ -27,7 +27,7 @@ import { EXPENSE_CATEGORIES } from '@/lib/constants'
 import { useBranch } from '@/lib/branch-context'
 
 export default function SettingsPage() {
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
   const [services, setServices] = useState<Service[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([])

@@ -26,7 +26,7 @@ const STATUS_OPTIONS: { value: AttendanceStatus; label: string; color: string }[
 
 export default function AttendancePage() {
   const supabase = createClient()
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
   const today = getToday()
 
   const [data, setData] = useState<EmployeeAttendance[]>([])

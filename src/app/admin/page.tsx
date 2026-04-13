@@ -20,7 +20,7 @@ import { formatPeso, getToday } from '@/lib/utils'
 
 export default function AdminDashboard() {
   const supabase = createClient()
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
 
   const [todaySales, setTodaySales] = useState(0)
   const [monthSales, setMonthSales] = useState(0)

@@ -26,7 +26,7 @@ interface WhatIfItem {
 }
 
 export default function ForecastingPage() {
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
   const now = new Date()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [completedVisits, setCompletedVisits] = useState<Visit[]>([])

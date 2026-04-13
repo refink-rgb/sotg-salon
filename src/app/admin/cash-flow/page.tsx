@@ -20,7 +20,7 @@ import type { Transaction } from '@/types/database'
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function CashFlowPage() {
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth())
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())

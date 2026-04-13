@@ -58,7 +58,7 @@ interface PaymentEntry {
 
 export default function DashboardQueuePage() {
   const supabase = createClient()
-  const { branchId, userRole } = useBranch()
+  const { branchId, userRole, loading: branchLoading } = useBranch()
 
   const [visits, setVisits] = useState<Visit[]>([])
   const [loading, setLoading] = useState(true)
@@ -659,7 +659,7 @@ export default function DashboardQueuePage() {
     return `${hours}h ${mins}m`
   }
 
-  if (loading) {
+  if (loading || branchLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="size-8 animate-spin text-[#40916C]" />

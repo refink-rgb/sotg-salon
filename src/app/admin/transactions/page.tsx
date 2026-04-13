@@ -57,7 +57,7 @@ interface TransactionWithEmployee extends Transaction {
 }
 
 export default function TransactionsPage() {
-  const { branchId } = useBranch()
+  const { branchId, loading: branchLoading } = useBranch()
   const now = new Date()
   const [dateFrom, setDateFrom] = useState(formatDateInput(startOfMonth(now)))
   const [dateTo, setDateTo] = useState(formatDateInput(endOfMonth(now)))
