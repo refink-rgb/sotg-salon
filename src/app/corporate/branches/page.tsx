@@ -12,12 +12,16 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger,
 } from '@/components/ui/dialog'
-import { Building2, Plus, Copy, Loader2, Pencil } from 'lucide-react'
+import { Building2, Plus, Copy, Loader2, Pencil, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
+import { useBranch } from '@/lib/branch-context'
 import type { Branch } from '@/types/database'
 
 export default function BranchesPage() {
   const supabase = createClient()
+  const router = useRouter()
+  const { switchBranch } = useBranch()
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -157,7 +161,14 @@ export default function BranchesPage() {
             </TableHeader>
             <TableBody>
               {branches.map(branch => (
-                <TableRow key={branch.id}>
+                <TableRow
+                  key={branch.id}
+                  className="cursor-pointer hover:bg-amber-50"
+                  onClick={() => {
+                    switchBranch(branch.id)
+                    router.push('/dashboard')
+                  }}
+                >
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Building2 className="size-4 text-amber-600" />
@@ -170,7 +181,7 @@ export default function BranchesPage() {
                   <TableCell><code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{branch.slug}</code></TableCell>
                   <TableCell>
                     <button
-                      onClick={() => copyKioskUrl(branch.slug)}
+                      onClick={(e) => { e.stopPropagation(); copyKioskUrl(branch.slug) }}
                       className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
                     >
                       <Copy className="size-3" />
@@ -183,9 +194,12 @@ export default function BranchesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(branch)}>
-                      <Pencil className="size-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openEdit(branch) }}>
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <ArrowRight className="size-4 text-gray-300 group-hover:text-amber-500" />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
